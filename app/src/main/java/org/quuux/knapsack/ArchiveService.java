@@ -3,6 +3,7 @@ package org.quuux.knapsack;
 import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Bundle;
@@ -10,12 +11,15 @@ import android.os.Environment;
 import android.os.IBinder;
 import android.view.Gravity;
 import android.view.WindowManager;
-import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.quuux.sack.Sack;
+
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 
 public class ArchiveService extends Service {
 
@@ -34,13 +38,46 @@ public class ArchiveService extends Service {
 
         final String action = intent.getAction();
         if (Intent.ACTION_SEND.equals(action)) {
-            archive(intent.getStringExtra(Intent.EXTRA_TEXT));
+            final String url = intent.getStringExtra(Intent.EXTRA_TEXT);
+            final String title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+
+            final File parent = getArchivePath(url);
+
+            if (!parent.exists())
+                parent.mkdirs();
+
+            saveBitmap(intent, "share_favicon", getArchivePath(url, "favicon.png"));
+            saveBitmap(intent, "share_screenshot", getArchivePath(url, "screenshot.png"));
+            archive(url, getArchivePath(url, "index.mht").getPath());
+
+            final ArchivedPage page = new ArchivedPage(url, title);
+            Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, getArchivePath(url, "manifest.json"));
+            try {
+                store.commit(page).get();
+            } catch (Exception e) {
+                Log.e(TAG, "error sacking page", e);
+            }
         }
         return 0;
     }
 
+    private void saveBitmap(final Intent intent, final String key, final File path) {
+        if (intent.hasExtra(key)) {
+            saveBitmap((Bitmap) intent.getParcelableExtra(key), path);
+        }
+    }
+
+    private void saveBitmap(final Bitmap bitmap, final File path) {
+        try {
+            FileOutputStream out = new FileOutputStream(path);
+            bitmap.compress(Bitmap.CompressFormat.PNG, 90, out);
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "error saving bitmap", e);
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
-    private void archive(final String url) {
+    private void archive(final String url, final String path) {
         Log.d(TAG, "archiving: %s", url);
 
         final WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -64,24 +101,22 @@ public class ArchiveService extends Service {
                 Log.d(TAG, "page finished: %s", url);
                 view.pauseTimers();
                 view.onPause();
-                save(view, url);
+                view.saveWebArchive(path);
                 view.destroy();
             }
 
         });
-        
+
         view.onResume();
         view.loadUrl(url);
     }
 
-    private void save(final WebView view, final String url) {
-
+    private File getArchivePath() {
         final File base = Environment.getExternalStorageDirectory();
-        final File dir = new File(base, "WebArchive");
+        return new File(base, "WebArchive");
+    }
 
-        if (!dir.exists())
-            dir.mkdirs();
-
+    private File getArchivePath(final String url) {
         final Uri uri = Uri.parse(url);
 
         final StringBuilder sb = new StringBuilder();
@@ -92,11 +127,11 @@ public class ArchiveService extends Service {
             sb.append(part);
         }
 
-        final File path = new File(dir, sb.toString() + ".mht");
+        return new File(getArchivePath(), sb.toString());
+    }
 
-        Log.d(TAG, "Path: %s", path);
-
-        view.saveWebArchive(path.getPath());
+    private File getArchivePath(final String url, final String filename) {
+        return new File(getArchivePath(url), filename);
     }
 
     @Override
