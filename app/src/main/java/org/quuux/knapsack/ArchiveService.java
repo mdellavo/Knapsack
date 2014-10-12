@@ -41,17 +41,21 @@ public class ArchiveService extends Service {
             final String url = intent.getStringExtra(Intent.EXTRA_TEXT);
             final String title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
 
-            final File parent = getArchivePath(url);
+//            final File dir = ArchivedPage.getArchivePath();
+//            if (!dir.exists())
+//                dir.mkdirs();
+
+            final File parent = ArchivedPage.getArchivePath(url);
 
             if (!parent.exists())
                 parent.mkdirs();
 
-            saveBitmap(intent, "share_favicon", getArchivePath(url, "favicon.png"));
-            saveBitmap(intent, "share_screenshot", getArchivePath(url, "screenshot.png"));
-            archive(url, getArchivePath(url, "index.mht").getPath());
+            saveBitmap(intent, "share_favicon", ArchivedPage.getArchivePath(url, "favicon.png"));
+            saveBitmap(intent, "share_screenshot", ArchivedPage.getArchivePath(url, "screenshot.png"));
+            archive(url, ArchivedPage.getArchivePath(url, "index.mht").getPath());
 
             final ArchivedPage page = new ArchivedPage(url, title);
-            Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, getArchivePath(url, "manifest.json"));
+            Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, ArchivedPage.getArchivePath(url, "manifest.json"));
             try {
                 store.commit(page).get();
             } catch (Exception e) {
@@ -109,29 +113,6 @@ public class ArchiveService extends Service {
 
         view.onResume();
         view.loadUrl(url);
-    }
-
-    private File getArchivePath() {
-        final File base = Environment.getExternalStorageDirectory();
-        return new File(base, "WebArchive");
-    }
-
-    private File getArchivePath(final String url) {
-        final Uri uri = Uri.parse(url);
-
-        final StringBuilder sb = new StringBuilder();
-        sb.append(uri.getHost());
-
-        for (final String part : uri.getPathSegments()) {
-            sb.append("-");
-            sb.append(part);
-        }
-
-        return new File(getArchivePath(), sb.toString());
-    }
-
-    private File getArchivePath(final String url, final String filename) {
-        return new File(getArchivePath(url), filename);
     }
 
     @Override
