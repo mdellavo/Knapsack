@@ -1,7 +1,9 @@
 package org.quuux.knapsack;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -10,7 +12,11 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.ProgressBar;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -25,13 +31,13 @@ public class ViewerActivity extends ActionBarActivity {
     private boolean mLeanback;
     private GestureDetector mGestureDetector;
     final private Handler mHandler = new Handler();
+    private ProgressBar mProgress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         getSupportActionBar().setBackgroundDrawable(getResources().getDrawable(R.drawable.actionbar));
-
         setContentView(R.layout.activity_viewer);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -47,10 +53,43 @@ public class ViewerActivity extends ActionBarActivity {
             }
         });
 
+        mProgress = (ProgressBar)findViewById(R.id.progress);
+
+        initWebView(mContentView);
+
         setupSystemUi();
         load();
 
         startLeanback();
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private void initWebView(final WebView view) {
+        final WebSettings settings = view.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setBlockNetworkLoads(true);
+        settings.setBlockNetworkImage(true);
+        settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+        settings.setUseWideViewPort(false);
+        settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
+
+        view.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(final WebView view, final String url) {
+                super.onPageFinished(view, url);
+                toggleProgress(false);
+            }
+
+            @Override
+            public void onPageStarted(final WebView view, final String url, final Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                toggleProgress(true);
+            }
+        });
+    }
+
+    private void toggleProgress(final boolean state) {
+        mProgress.setVisibility(state ? View.VISIBLE : View.GONE);
     }
 
     @Override
@@ -60,7 +99,6 @@ public class ViewerActivity extends ActionBarActivity {
         if(mLeanback)
             startLeanback();
     }
-
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
@@ -74,6 +112,10 @@ public class ViewerActivity extends ActionBarActivity {
     }
     private void load() {
         final ArchivedPage page = (ArchivedPage) getIntent().getSerializableExtra("page");
+
+        getSupportActionBar().setTitle(page.title);
+        getSupportActionBar().setSubtitle(page.url);
+
         final File file = ArchivedPage.getArchivePath(page.url, "index.mht");
         try {
             mContentView.loadUrl(file.toURI().toURL().toString());
