@@ -2,26 +2,58 @@
 
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                android:padding="20dp"
+                android:background="@android:color/white"
+    >
+
+    <FrameLayout
+        android:id="@+id/frame"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        >
+        <ImageView
+            android:id="@+id/screenshot"
+            android:scaleType="centerCrop"
+            android:layout_width="64dp"
+            android:layout_height="96dp"
+            android:paddingTop="12dp"
+            android:paddingLeft="12dp"
+            />
+
+        <ImageView
+            android:id="@+id/favicon"
+            android:scaleType="centerCrop"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            />
+    </FrameLayout>
 
     <TextView
         android:id="@+id/title"
+        android:layout_alignParentLeft="true"
+        android:layout_toLeftOf="@id/frame"
+        android:layout_alignParentTop="@id/frame"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textColor="#dd000000"
+        />
+
 
     <TextView
         android:id="@+id/url"
+        android:layout_alignParentLeft="true"
+        android:layout_toLeftOf="@id/frame"
+        android:layout_below="@id/title"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:textStyle="italic"
+        android:textSize="12sp"
+        android:textColor="#88000000"
+        />
 
-    <ImageView
-        android:id="@+id/screenshot"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
 
-    <ImageView
-        android:id="@+id/favicon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
 
 </RelativeLayout>

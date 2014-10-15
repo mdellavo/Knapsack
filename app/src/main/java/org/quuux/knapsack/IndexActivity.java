@@ -20,7 +20,6 @@ import org.quuux.sack.Sack;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 public class IndexActivity extends ListActivity {
 
@@ -36,7 +35,7 @@ public class IndexActivity extends ListActivity {
     @Override
     protected void onListItemClick(final ListView l, final View v, final int position, final long id) {
         super.onListItemClick(l, v, position, id);
-        final Intent intent = new Intent(this, ArchiveViewerActivity.class);
+        final Intent intent = new Intent(this, ViewerActivity.class);
         intent.putExtra("page", (ArchivedPage)getListAdapter().getItem(position));
         startActivity(intent);
     }
