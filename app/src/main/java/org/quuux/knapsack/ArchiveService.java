@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
@@ -72,29 +73,37 @@ public class ArchiveService extends Service {
     }
 
     private void saveBitmap(final Bitmap bitmap, final File path) {
-        try {
-            FileOutputStream out = new FileOutputStream(path);
-            bitmap.compress(Bitmap.CompressFormat.PNG, 90, out);
-        } catch (FileNotFoundException e) {
-            Log.e(TAG, "error saving bitmap", e);
-        }
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(final Void[] params) {
+
+                try {
+                    FileOutputStream out = new FileOutputStream(path);
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 90, out);
+                } catch (FileNotFoundException e) {
+                    Log.e(TAG, "error saving bitmap", e);
+                }
+
+                return null;
+            }
+        }.execute();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private void archive(final String url, final String path) {
         Log.d(TAG, "archiving: %s", url);
 
-        final WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        final WindowManager.LayoutParams params = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_PHONE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x = 0;
-        params.y = 0;
-        params.width = 0;
-        params.height = 0;
+//        final WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+//        final WindowManager.LayoutParams params = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_PHONE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, PixelFormat.TRANSLUCENT);
+//        params.gravity = Gravity.TOP | Gravity.LEFT;
+//        params.x = 0;
+//        params.y = 0;
+//        params.width = 0;
+//        params.height = 0;
 
         final WebView view = new WebView(this);
 
-        windowManager.addView(view, params);
+        //windowManager.addView(view, params);
 
         view.getSettings().setJavaScriptEnabled(true);
         view.setWebChromeClient(new WebChromeClient() {});

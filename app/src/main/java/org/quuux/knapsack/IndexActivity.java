@@ -28,7 +28,6 @@ public class IndexActivity extends ListActivity {
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         loadArchives();
     }
 
@@ -111,7 +110,8 @@ public class IndexActivity extends ListActivity {
             for (final File file : ArchivedPage.getArchivePath().listFiles()) {
 
                 final File manifest = new File(file, "manifest.json");
-                if (file.isDirectory() && manifest.isFile()) {
+                final File index = new File(file, "index.mht");
+                if (file.isDirectory() && manifest.isFile() && index.isFile()) {
                     final Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, manifest);
                     try {
                         final Pair<Sack.Status, ArchivedPage> sacked = store.doLoad();

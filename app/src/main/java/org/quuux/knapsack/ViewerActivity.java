@@ -30,12 +30,14 @@ public class ViewerActivity extends ActionBarActivity {
     private WebView mContentView;
     private boolean mLeanback;
     private GestureDetector mGestureDetector;
-    final private Handler mHandler = new Handler();
+    private Handler mHandler;
     private ProgressBar mProgress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mHandler = new Handler();
 
         getSupportActionBar().setBackgroundDrawable(getResources().getDrawable(R.drawable.actionbar));
         setContentView(R.layout.activity_viewer);
@@ -59,25 +61,27 @@ public class ViewerActivity extends ActionBarActivity {
 
         setupSystemUi();
         load();
-
-        startLeanback();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private void initWebView(final WebView view) {
+
         final WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
+
         settings.setBlockNetworkLoads(true);
         settings.setBlockNetworkImage(true);
+        settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
+
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
         settings.setUseWideViewPort(false);
-        settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
 
         view.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(final WebView view, final String url) {
                 super.onPageFinished(view, url);
                 toggleProgress(false);
+                mHandler.postDelayed(mLeanbackCallback, 500);
             }
 
             @Override
@@ -95,21 +99,8 @@ public class ViewerActivity extends ActionBarActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
-        if(mLeanback)
-            startLeanback();
     }
 
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            if (mLeanback)
-                startLeanback();
-            else
-                exitLeanback();
-        }
-    }
     private void load() {
         final ArchivedPage page = (ArchivedPage) getIntent().getSerializableExtra("page");
 
