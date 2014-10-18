@@ -42,10 +42,6 @@ public class ArchiveService extends Service {
             final String url = intent.getStringExtra(Intent.EXTRA_TEXT);
             final String title = intent.getStringExtra(Intent.EXTRA_SUBJECT);
 
-//            final File dir = ArchivedPage.getArchivePath();
-//            if (!dir.exists())
-//                dir.mkdirs();
-
             final File parent = ArchivedPage.getArchivePath(url);
 
             if (!parent.exists())
@@ -93,17 +89,7 @@ public class ArchiveService extends Service {
     private void archive(final String url, final String path) {
         Log.d(TAG, "archiving: %s", url);
 
-//        final WindowManager windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-//        final WindowManager.LayoutParams params = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_PHONE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, PixelFormat.TRANSLUCENT);
-//        params.gravity = Gravity.TOP | Gravity.LEFT;
-//        params.x = 0;
-//        params.y = 0;
-//        params.width = 0;
-//        params.height = 0;
-
         final WebView view = new WebView(this);
-
-        //windowManager.addView(view, params);
 
         view.getSettings().setJavaScriptEnabled(true);
         view.setWebChromeClient(new WebChromeClient() {});
@@ -116,6 +102,7 @@ public class ArchiveService extends Service {
                 view.onPause();
                 view.saveWebArchive(path);
                 view.destroy();
+                stopSelf();
             }
 
         });

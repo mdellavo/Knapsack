@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 
+
 android {
     compileSdkVersion 20
     buildToolsVersion "20.0.0"
@@ -8,13 +9,22 @@ android {
         applicationId "org.quuux.knapsack"
         minSdkVersion 11
         targetSdkVersion 20
-        versionCode 1
-        versionName "1.0"
+        versionCode project.hasProperty('versionCode') ? versionCode.toInteger() : -1
+        versionName project.hasProperty('versionName') ? versionName : ""
+    }
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword "xxx"
+            keyAlias "quuux"
+            keyPassword "xxx"
+        }
     }
     buildTypes {
         release {
             runProguard false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }
@@ -25,4 +35,16 @@ dependencies {
     compile 'com.android.support:appcompat-v7:20.0.0'
     compile 'com.squareup.picasso:picasso:2.3.4'
     compile 'com.android.support:support-v4:20.0.0'
+}
+
+task askForPasswords << {
+    def password = new String(System.console().readPassword("\n\npassword: "))
+    android.signingConfigs.release.storePassword = password
+    android.signingConfigs.release.keyPassword = password
+}
+
+tasks.whenTaskAdded { theTask ->
+    if (theTask.name.equals("packageRelease")) {
+        theTask.dependsOn "askForPasswords"
+    }
 }
