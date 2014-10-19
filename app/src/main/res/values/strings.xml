@@ -6,4 +6,11 @@
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
 
+
+    <string-array name="more">
+        <item>Open</item>
+        <item>Refresh</item>
+        <item>Delete</item>
+    </string-array>
+
 </resources>

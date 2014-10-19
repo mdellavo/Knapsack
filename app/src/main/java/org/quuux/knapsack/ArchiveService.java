@@ -42,8 +42,6 @@ public class ArchiveService extends Service {
 
         Log.d(TAG, "intent = %s", intent);
 
-
-
         final Bundle bundle = intent.getExtras();
         for (String key : bundle.keySet()) {
             Object value = bundle.get(key);
@@ -63,7 +61,7 @@ public class ArchiveService extends Service {
 
             saveBitmap(intent, "share_favicon", ArchivedPage.getArchivePath(url, "favicon.png"));
             saveBitmap(intent, "share_screenshot", ArchivedPage.getArchivePath(url, "screenshot.png"));
-            archive(url, ArchivedPage.getArchivePath(url, "index.mht").getPath());
+            archive(url, ArchivedPage.getArchivePath(url, "index.mht").getAbsolutePath());
 
             final ArchivedPage page = new ArchivedPage(url, title);
             Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, ArchivedPage.getArchivePath(url, "manifest.json"));
