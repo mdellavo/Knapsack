@@ -107,7 +107,12 @@ public class IndexActivity extends ListActivity {
         protected List<ArchivedPage> doInBackground(final Void... params) {
 
             final List<ArchivedPage> rv = new ArrayList<ArchivedPage>();
-            for (final File file : ArchivedPage.getArchivePath().listFiles()) {
+
+            final File[] files = ArchivedPage.getArchivePath().listFiles();
+            if (files == null)
+                return rv;
+
+            for (final File file : files) {
 
                 final File manifest = new File(file, "manifest.json");
                 final File index = new File(file, "index.mht");

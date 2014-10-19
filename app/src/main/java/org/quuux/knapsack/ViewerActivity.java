@@ -73,8 +73,13 @@ public class ViewerActivity extends ActionBarActivity {
         settings.setBlockNetworkImage(true);
         settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
 
+        settings.setSupportZoom(true);
+        settings.setBuiltInZoomControls(true);
+        settings.setDisplayZoomControls(false);
+        settings.setLoadWithOverviewMode(true);
+
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-        settings.setUseWideViewPort(false);
+        settings.setUseWideViewPort(true);
 
         view.setWebViewClient(new WebViewClient() {
             @Override
