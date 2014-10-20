@@ -3,10 +3,6 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
-                android:paddingBottom="15dp"
-                android:paddingTop="15dp"
                 android:background="@android:color/white"
     >
 
@@ -15,20 +11,35 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
+        android:padding="5dp"
         >
         <ImageView
             android:id="@+id/screenshot"
-            android:scaleType="centerCrop"
+            android:scaleType="centerInside"
             android:layout_width="64dp"
-            android:layout_height="64dp"
+            android:layout_height="96dp"
+            android:adjustViewBounds="true"
             />
 
         <ImageView
             android:id="@+id/favicon"
-            android:scaleType="centerCrop"
+            android:scaleType="center"
             android:layout_width="24dp"
             android:layout_height="24dp"
             />
+
+        <TextView
+            android:id="@+id/read"
+            android:background="@drawable/unread"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#ffffff"
+            android:gravity="center"
+            />
+
+
     </FrameLayout>
 
     <ImageView
@@ -48,10 +59,13 @@
         android:layout_alignParentTop="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="14sp"
+        android:textSize="16sp"
         android:textColor="#dd000000"
         android:textStyle="bold"
-        android:paddingLeft="5dp"
+        android:maxLines="2"
+        android:paddingTop="5dp"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
         />
 
     <TextView
@@ -61,13 +75,27 @@
         android:layout_below="@id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingLeft="5dp"
         android:paddingRight="5dp"
         android:textStyle="italic"
-        android:textSize="12sp"
+        android:textSize="14sp"
         android:textColor="#88000000"
         android:maxLines="1"
         android:ellipsize="end"
+        android:gravity="center_vertical"
+        />
+
+
+    <TextView
+        android:id="@+id/created"
+        android:layout_below="@id/url"
+        android:layout_toRightOf="@id/frame"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textColor="#88000000"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
         />
 
 

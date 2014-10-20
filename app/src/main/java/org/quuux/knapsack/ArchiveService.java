@@ -6,18 +6,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Picture;
-import android.graphics.PixelFormat;
-import android.graphics.Point;
-import android.net.Uri;
+import android.net.http.SslError;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.util.Pair;
 import android.view.Display;
-import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.CookieManager;
+import android.webkit.GeolocationPermissions;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -28,6 +28,7 @@ import org.quuux.sack.Sack;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.util.concurrent.Semaphore;
 
 public class ArchiveService extends Service {
 
@@ -59,12 +60,28 @@ public class ArchiveService extends Service {
             if (!parent.exists())
                 parent.mkdirs();
 
+            final File manifest = ArchivedPage.getArchivePath(url, "manifest.json");
+            ArchivedPage page = null;
+            if (manifest.exists()) {
+                Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, manifest);
+                try {
+                    final Pair<Sack.Status, ArchivedPage> result = store.load().get();
+                    if (result.first == Sack.Status.SUCCESS)
+                        page = result.second;
+                } catch (Exception e) {
+                    Log.e(TAG, "error loading sacked page", e);
+                }
+            }
+
+            if (page == null) {
+                page = new ArchivedPage(url, title);
+            }
+
             saveBitmap(intent, "share_favicon", ArchivedPage.getArchivePath(url, "favicon.png"));
             saveBitmap(intent, "share_screenshot", ArchivedPage.getArchivePath(url, "screenshot.png"));
-            archive(url, ArchivedPage.getArchivePath(url, "index.mht").getAbsolutePath());
+            archive(page);
 
-            final ArchivedPage page = new ArchivedPage(url, title);
-            Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, ArchivedPage.getArchivePath(url, "manifest.json"));
+            Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, manifest);
             try {
                 store.commit(page).get();
             } catch (Exception e) {
@@ -99,8 +116,10 @@ public class ArchiveService extends Service {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private void archive(final String url, final String path) {
-        Log.d(TAG, "archiving: %s", url);
+    private void archive(final ArchivedPage page) {
+        Log.d(TAG, "archiving: %s", page.url);
+
+        final Handler handler = new Handler(getMainLooper());
 
         WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         final Display display = wm.getDefaultDisplay();
@@ -117,10 +136,69 @@ public class ArchiveService extends Service {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
 
+        CookieManager.getInstance().setAcceptCookie(false);
+
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        settings.setAppCacheEnabled(false);
+        view.clearHistory();
+        view.clearCache(true);
+
+        view.clearFormData();
+        settings.setSavePassword(false);
+        settings.setSaveFormData(false);
 
         view.getSettings().setJavaScriptEnabled(true);
-        view.setWebChromeClient(new WebChromeClient() {});
+        view.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(final WebView view, final int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                Log.d(TAG, "progress: %s", newProgress);
+            }
+
+            @Override
+            public void onReceivedIcon(final WebView view, final Bitmap icon) {
+                super.onReceivedIcon(view, icon);
+                if (icon != null)
+                    saveBitmap(icon, ArchivedPage.getArchivePath(page.url, "favicon.png"));
+            }
+
+            @Override
+            public void onReceivedTitle(final WebView view, final String title) {
+                super.onReceivedTitle(view, title);
+                page.title = title;
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(final String origin, final GeolocationPermissions.Callback callback) {
+                super.onGeolocationPermissionsShowPrompt(origin, callback);
+                callback.invoke(origin, false, false);
+            }
+        });
+
+
+        final Runnable timeout = new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "timeout!");
+                view.stopLoading();
+            }
+        };
+
         view.setWebViewClient(new WebViewClient() {
+
+            @Override
+            public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
+                Log.d(TAG, "override: %s", url);
+                return false;
+            }
+
+            @Override
+            public void onReceivedSslError(final WebView view, final SslErrorHandler handler, final SslError error) {
+                super.onReceivedSslError(view, handler, error);
+                Log.d(TAG, "ssl error: %s", error);
+                handler.proceed();
+            }
+
             @Override
             public void onPageStarted(final WebView view, final String url, final Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
@@ -132,9 +210,12 @@ public class ArchiveService extends Service {
             public void onPageFinished(final WebView view, final String url) {
                 super.onPageFinished(view, url);
                 Log.d(TAG, "page finished: %s", url);
+
+                handler.removeCallbacks(timeout);
+
                 view.pauseTimers();
                 view.onPause();
-                view.saveWebArchive(path);
+                view.saveWebArchive(ArchivedPage.getArchivePath(url, "index.mht").getPath());
 
                 final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
                 final Canvas canvas = new Canvas(bitmap);
@@ -142,7 +223,7 @@ public class ArchiveService extends Service {
 
                 final Bitmap resized = Bitmap.createScaledBitmap(bitmap, width/4, height/4, true);
 
-                saveBitmap(resized, ArchivedPage.getArchivePath(url, "screenshot.png"));
+                saveBitmap(resized, ArchivedPage.getArchivePath(page.url, "screenshot.png"));
 
                 view.destroy();
             }
@@ -161,7 +242,9 @@ public class ArchiveService extends Service {
         });
 
         view.onResume();
-        view.loadUrl(url);
+        view.loadUrl(page.url);
+
+        handler.postDelayed(timeout, 30 * 1000);
     }
 
     @Override

@@ -3,7 +3,11 @@ package org.quuux.knapsack;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,11 +16,15 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.GeolocationPermissions;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
+
+import org.quuux.sack.Sack;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -48,12 +56,12 @@ public class ViewerActivity extends ActionBarActivity {
         final View controlsView = findViewById(R.id.fullscreen_content_controls);
 
         mContentView = (WebView) findViewById(R.id.fullscreen_content);
-        mContentView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(final View v, final MotionEvent event) {
-                return mGestureDetector.onTouchEvent(event);
-            }
-        });
+//        mContentView.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(final View v, final MotionEvent event) {
+//                return mGestureDetector.onTouchEvent(event);
+//            }
+//        });
 
         mProgress = (ProgressBar)findViewById(R.id.progress);
 
@@ -63,15 +71,25 @@ public class ViewerActivity extends ActionBarActivity {
         load();
     }
 
+    private boolean isNetworkAvailable() {
+        final  ConnectivityManager connectivityManager
+                = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        final NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
+
     @SuppressLint("SetJavaScriptEnabled")
     private void initWebView(final WebView view) {
 
         final WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
 
-        settings.setBlockNetworkLoads(true);
-        settings.setBlockNetworkImage(true);
-        settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
+        if (!isNetworkAvailable()) {
+            settings.setBlockNetworkLoads(true);
+            settings.setBlockNetworkImage(true);
+            settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
+        }
 
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
@@ -81,7 +99,45 @@ public class ViewerActivity extends ActionBarActivity {
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
         settings.setUseWideViewPort(true);
 
+        view.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(final WebView view, final int newProgress) {
+                super.onProgressChanged(view, newProgress);
+                Log.d(TAG, "progress: %s", newProgress);
+            }
+
+            @Override
+            public void onReceivedIcon(final WebView view, final Bitmap icon) {
+                super.onReceivedIcon(view, icon);
+            }
+
+            @Override
+            public void onReceivedTitle(final WebView view, final String title) {
+                super.onReceivedTitle(view, title);
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(final String origin, final GeolocationPermissions.Callback callback) {
+                super.onGeolocationPermissionsShowPrompt(origin, callback);
+                callback.invoke(origin, false, false);
+            }
+
+        });
+
         view.setWebViewClient(new WebViewClient() {
+
+            @Override
+            public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
+                Log.d(TAG, "override: %s", url);
+                return !isNetworkAvailable();
+            }
+
+            @Override
+            public void onReceivedSslError(final WebView view, final SslErrorHandler handler, final SslError error) {
+                super.onReceivedSslError(view, handler, error);
+                Log.d(TAG, "ssl error: %s", error);
+                handler.proceed();
+            }
             @Override
             public void onPageFinished(final WebView view, final String url) {
                 super.onPageFinished(view, url);
@@ -92,7 +148,19 @@ public class ViewerActivity extends ActionBarActivity {
             @Override
             public void onPageStarted(final WebView view, final String url, final Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
-                toggleProgress(true);
+                //toggleProgress(true);
+            }
+
+            @Override
+            public void onLoadResource(final WebView view, final String url) {
+                super.onLoadResource(view, url);
+                Log.d(TAG, "loading: %s", url);
+            }
+
+            @Override
+            public void onReceivedError(final WebView view, final int errorCode, final String description, final String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                Log.d(TAG, "error (%s) %s @ %s", errorCode, description, failingUrl);
             }
         });
     }
@@ -117,6 +185,14 @@ public class ViewerActivity extends ActionBarActivity {
             mContentView.loadUrl(file.toURI().toURL().toString());
         } catch (MalformedURLException e) {
             Log.e(TAG, "error loading page", e);
+        }
+
+        if (!page.read) {
+            page.read = true;
+
+            final File manifest = ArchivedPage.getArchivePath(page.url, "manifest.json");
+            Sack<ArchivedPage> sack = Sack.open(ArchivedPage.class, manifest);
+            sack.commit(page);
         }
     }
 

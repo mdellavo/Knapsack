@@ -26,7 +26,12 @@ import com.squareup.picasso.Picasso;
 import org.quuux.sack.Sack;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 
 public class IndexActivity extends ActionBarActivity implements AdapterView.OnItemClickListener {
@@ -36,6 +41,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     private static final int ITEM_REFRESH = 1;
     private static final int ITEM_DELETE = 2;
     private static final int EVENTS = (FileObserver.CREATE | FileObserver.DELETE | FileObserver.ATTRIB | FileObserver.MOVED_FROM | FileObserver.MOVED_TO);
+    private static final long MILLIS_PER_DAY = 86400000;
 
     private final Handler mHandler = new Handler();
 
@@ -85,7 +91,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     @Override
     public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
         final Intent intent = new Intent(this, ViewerActivity.class);
-        intent.putExtra("page", (ArchivedPage)mListView.getAdapter().getItem(position));
+        intent.putExtra("page", (ArchivedPage) mListView.getAdapter().getItem(position));
         startActivity(intent);
     }
 
@@ -126,6 +132,8 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             holder.screenshot = (ImageView)view.findViewById(R.id.screenshot);
             holder.favicon = (ImageView)view.findViewById(R.id.favicon);
             holder.more = view.findViewById(R.id.more);
+            holder.created = (TextView) view.findViewById(R.id.created);
+            holder.read = (TextView) view.findViewById(R.id.read);
             view.setTag(holder);
             return view;
         }
@@ -133,7 +141,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         private void bindView(final Holder holder, final ArchivedPage page, final int position) {
             holder.position = position;
             holder.title.setText(page.title);
-            holder.url.setText(page.url);
+            holder.url.setText(Uri.parse(page.url).getHost());
 
             final File favicon = ArchivedPage.getArchivePath(page.url, "favicon.png");
             Picasso.with(IndexActivity.this).load(favicon).into(holder.favicon);
@@ -148,6 +156,30 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                 }
             });
 
+            holder.created.setText(page.created != null ? formatCreated(page.created) : null);
+            holder.created.setVisibility(page.created != null ? View.VISIBLE : View.GONE);
+
+            holder.read.setText(page.read ? R.string.read : R.string.unread);
+            holder.read.setVisibility(page.read ? View.GONE : View.VISIBLE);
+
+        }
+
+        private CharSequence formatCreated(final Date created) {
+            final Date now = new Date();
+            final long delta = (now.getTime() - created.getTime()) / MILLIS_PER_DAY;
+
+            final CharSequence rv;
+
+            if (delta == 0) {
+                rv = "Today";
+            } else if (delta == 1) {
+                rv = "Yesterday";
+            } else if (delta < 7) {
+                rv = new SimpleDateFormat("E").format(created);
+            } else {
+                rv = new SimpleDateFormat("M d").format(created);
+            }
+            return rv;
         }
     }
 
@@ -187,7 +219,12 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     }
 
     private void deletePage(final ArchivedPage page) {
-        ArchivedPage.getArchivePath(page.url).delete();
+        final File dir = ArchivedPage.getArchivePath(page.url);
+
+        for (final File file : dir.listFiles())
+            file.delete();
+
+        dir.delete();
     }
 
     private void refreshPage(final ArchivedPage page) {
@@ -206,7 +243,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
     class Holder {
         int position;
-        TextView url, title;
+        TextView url, title, created, read;
         ImageView screenshot, favicon;
         View more;
     }
@@ -241,6 +278,19 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                     }
                 }
             }
+
+            Collections.sort(rv, new Comparator<ArchivedPage>() {
+                @Override
+                public int compare(final ArchivedPage lhs, final ArchivedPage rhs) {
+                    if (lhs.created == null)
+                        return 1;
+
+                    if (rhs.created == null)
+                        return -1;
+
+                    return -lhs.created.compareTo(rhs.created);
+                }
+            });
 
             return rv;
         }
