@@ -2,6 +2,7 @@ package org.quuux.knapsack;
 
 import android.annotation.SuppressLint;
 import android.app.IntentService;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -11,6 +12,8 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.util.Pair;
 import android.util.Patterns;
 import android.view.Display;
@@ -151,9 +154,7 @@ public class ArchiveService extends IntentService {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private void archive(final ArchivedPage page) {
-        Log.d(TAG, "archiving: %s", page.url);
-
+    private WebView newWebView() {
         WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         final Display display = wm.getDefaultDisplay();
 
@@ -182,11 +183,32 @@ public class ArchiveService extends IntentService {
         settings.setSaveFormData(false);
 
         view.getSettings().setJavaScriptEnabled(true);
+
+        return view;
+    }
+
+    private void archive(final ArchivedPage page) {
+        Log.d(TAG, "archiving: %s", page.url);
+
+        final NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        final NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
+        builder
+                .setContentTitle(getString(R.string.archiving))
+                .setContentText(page.title)
+                .setSmallIcon(R.drawable.ic_stat_archving)
+                .setProgress(100, 0, true);
+
+        notificationManager.notify(page.url.hashCode(), builder.build());
+
+        final WebView view = newWebView();
         view.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(final WebView view, final int newProgress) {
                 super.onProgressChanged(view, newProgress);
                 Log.d(TAG, "progress: %s", newProgress);
+                builder.setProgress(100, newProgress, false);
+                notificationManager.notify(page.url.hashCode(), builder.build());
             }
 
             @Override
@@ -213,22 +235,14 @@ public class ArchiveService extends IntentService {
         final Runnable save = new Runnable() {
             @Override
             public void run() {
-                Log.d(TAG, "saving!");
-
-                view.saveWebArchive(ArchivedPage.getArchivePath(page.url, "index.mht").getPath());
-                final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-                final Canvas canvas = new Canvas(bitmap);
-                view.draw(canvas);
-
-                final Bitmap resized = Bitmap.createScaledBitmap(bitmap, width/4, height/4, true);
-
-                saveBitmap(resized, ArchivedPage.getArchivePath(page.url, "screenshot.png"));
-
-                view.pauseTimers();
-                view.onPause();
-                view.destroy();
-
+                savePage(page, view);
+                destoryWebView(view);
                 onArchiveComplete(page);
+
+                builder.setProgress(0, 0, false);
+                builder.setContentTitle(getString(R.string.archived));
+                builder.setContentText(page.title);
+                notificationManager.notify(page.url.hashCode(), builder.build());
             }
         };
 
@@ -236,10 +250,15 @@ public class ArchiveService extends IntentService {
             @Override
             public void run() {
                 Log.d(TAG, "timeout!");
-                view.stopLoading();
+                destoryWebView(view);
+
+                builder.setProgress(0, 0, false);
+                builder.setContentTitle(getString(R.string.archive_error));
+                builder.setContentText(page.title);
+                notificationManager.notify(page.url.hashCode(), builder.build());
+
             }
         };
-
 
         view.setWebViewClient(new WebViewClient() {
 
@@ -282,6 +301,12 @@ public class ArchiveService extends IntentService {
                 if (loadCount > 0)
                     return;
 
+                builder.setProgress(0, 0, true);
+
+                builder.setContentTitle(getString(R.string.archiving));
+                builder.setContentText(page.title);
+                notificationManager.notify(page.url.hashCode(), builder.build());
+
                 mHandler.removeCallbacks(timeout);
                 mHandler.postDelayed(save, 10 * 1000); // give it a little breathing room for ajax loads
             }
@@ -303,6 +328,29 @@ public class ArchiveService extends IntentService {
         view.loadUrl(page.url);
 
         mHandler.postDelayed(timeout, 30 * 1000);
+    }
+
+    private void destoryWebView(final WebView view) {
+        view.stopLoading();
+        view.pauseTimers();
+        view.onPause();
+        view.destroy();
+    }
+
+    private void savePage(final ArchivedPage page, final WebView view) {
+        Log.d(TAG, "saving!");
+
+        final int width = view.getWidth();
+        final int height = view.getHeight();
+
+        view.saveWebArchive(ArchivedPage.getArchivePath(page.url, "index.mht").getPath());
+        final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        final Canvas canvas = new Canvas(bitmap);
+        view.draw(canvas);
+
+        final Bitmap resized = Bitmap.createScaledBitmap(bitmap, width/4, height/4, true);
+
+        saveBitmap(resized, ArchivedPage.getArchivePath(page.url, "screenshot.png"));
     }
 
     @Override

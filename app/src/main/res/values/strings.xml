@@ -7,6 +7,11 @@
     <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="read"></string>
     <string name="unread">New</string>
+    <string name="notification_title">Archiving Page</string>
+    <string name="notification_text">Archiving - %s</string>
+    <string name="archived">Page Archived</string>
+    <string name="archive_error">Error Archiving Page</string>
+    <string name="archiving">Archving Page</string>
 
 
     <string-array name="more">
