@@ -1,14 +1,14 @@
 package org.quuux.knapsack;
 
-import android.app.ListActivity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.FileObserver;
-import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Pair;
 import android.view.View;
@@ -28,7 +28,6 @@ import org.quuux.sack.Sack;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -43,24 +42,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     private static final int EVENTS = (FileObserver.CREATE | FileObserver.DELETE | FileObserver.ATTRIB | FileObserver.MOVED_FROM | FileObserver.MOVED_TO);
     private static final long MILLIS_PER_DAY = 86400000;
 
-    private final Handler mHandler = new Handler();
-
-    private Runnable mReloadCallback = new Runnable() {
-        @Override
-        public void run() {
-            loadArchives();
-        }
-    };
-
-    private FileObserver mFileObserver = mFileObserver = new FileObserver(ArchivedPage.getArchivePath().getAbsolutePath(), EVENTS) {
-        @Override
-        public void onEvent(final int event, final String path) {
-            Log.d(TAG, "event: %s / path: %s", event, path);
-
-            mHandler.removeCallbacks(mReloadCallback);
-            mHandler.postDelayed(mReloadCallback, 500);
-        }
-    };
     private ListView mListView;
 
     @Override
@@ -74,14 +55,17 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     @Override
     protected void onResume() {
         super.onResume();
-        mFileObserver.startWatching();
+
+        final IntentFilter filter = new IntentFilter(ArchiveService.ACTION_ARCHIVE_COMPLETE);
+        registerReceiver(mReceiver, filter);
+
         loadArchives();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        mFileObserver.stopWatching();
+        unregisterReceiver(mReceiver);
     }
 
     private void loadArchives() {
@@ -282,6 +266,10 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             Collections.sort(rv, new Comparator<ArchivedPage>() {
                 @Override
                 public int compare(final ArchivedPage lhs, final ArchivedPage rhs) {
+
+                    if (lhs.created == null && rhs.created == null)
+                        return 0;
+
                     if (lhs.created == null)
                         return 1;
 
@@ -301,5 +289,15 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             mListView.setAdapter(new Adapter(pages));
         }
     }
+
+    final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(final Context context, final Intent intent) {
+            final String action = intent.getAction();
+
+            if (ArchiveService.ACTION_ARCHIVE_COMPLETE.equals(action))
+                loadArchives();
+        }
+    };
 
 }
