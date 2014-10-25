@@ -2,7 +2,6 @@ package org.quuux.knapsack;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
@@ -15,6 +14,7 @@ import android.support.v7.app.ActionBarActivity;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
@@ -31,15 +31,13 @@ import java.net.MalformedURLException;
 
 
 public class ViewerActivity extends ActionBarActivity {
-    private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
-
     private static final String TAG = Log.buildTag(ViewerActivity.class);
 
-    private WebView mContentView;
+    private ObservableWebView mContentView;
     private boolean mLeanback;
-    private GestureDetector mGestureDetector;
     private Handler mHandler;
     private ProgressBar mProgress;
+    private int mSlop;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,24 +45,26 @@ public class ViewerActivity extends ActionBarActivity {
 
         mHandler = new Handler();
 
+        mSlop = ViewConfiguration.get(this).getScaledTouchSlop();
+
+        final GestureDetector gestureDetector = new GestureDetector(this, mGestureListener);
+
         getSupportActionBar().setBackgroundDrawable(getResources().getDrawable(R.drawable.actionbar));
         setContentView(R.layout.activity_viewer);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        mGestureDetector = new GestureDetector(this, mGestureListener);
-
-        final View controlsView = findViewById(R.id.fullscreen_content_controls);
-
-        mContentView = (WebView) findViewById(R.id.fullscreen_content);
-//        mContentView.setOnTouchListener(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(final View v, final MotionEvent event) {
-//                return mGestureDetector.onTouchEvent(event);
-//            }
-//        });
+        //final View controlsView = findViewById(R.id.fullscreen_content_controls);
 
         mProgress = (ProgressBar)findViewById(R.id.progress);
 
+        mContentView = (ObservableWebView) findViewById(R.id.fullscreen_content);
+        mContentView.setOnScrollChangedListener(mScrollListener);
+        mContentView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(final View v, final MotionEvent event) {
+                return gestureDetector.onTouchEvent(event);
+            }
+        });
         initWebView(mContentView);
 
         setupSystemUi();
@@ -142,7 +142,7 @@ public class ViewerActivity extends ActionBarActivity {
             public void onPageFinished(final WebView view, final String url) {
                 super.onPageFinished(view, url);
                 toggleProgress(false);
-                mHandler.postDelayed(mLeanbackCallback, 500);
+                mHandler.postDelayed(mStartLeanbackCallback, 500);
             }
 
             @Override
@@ -231,7 +231,7 @@ public class ViewerActivity extends ActionBarActivity {
                             | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
                             | View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             );
         }
     }
@@ -259,6 +259,7 @@ public class ViewerActivity extends ActionBarActivity {
     public void startLeanback() {
         Log.d(TAG, "start leanback");
         mLeanback = true;
+        mHandler.removeCallbacks(mEndLeanbackCallback);
         getSupportActionBar().hide();
         hideSystemUi();
     }
@@ -266,7 +267,7 @@ public class ViewerActivity extends ActionBarActivity {
     public void endLeanback() {
         Log.d(TAG, "end leanback");
         mLeanback = false;
-        mHandler.removeCallbacks(mLeanbackCallback);
+        mHandler.removeCallbacks(mStartLeanbackCallback);
         getSupportActionBar().show();
         showSystemUi();
     }
@@ -288,7 +289,7 @@ public class ViewerActivity extends ActionBarActivity {
             startLeanback();
     }
 
-    private final Runnable mLeanbackCallback = new Runnable() {
+    private final Runnable mStartLeanbackCallback = new Runnable() {
         @Override
         public void run() {
             Log.d(TAG, "resuming leanback...");
@@ -296,20 +297,41 @@ public class ViewerActivity extends ActionBarActivity {
         }
     };
 
-    final GestureDetector.OnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener() {
+    private final Runnable mEndLeanbackCallback = new Runnable() {
+        @Override
+        public void run() {
+            Log.d(TAG, "resuming leanback...");
+            endLeanback();
+        }
+    };
+
+    private ObservableWebView.OnScrollChangedListener mScrollListener = new ObservableWebView.OnScrollChangedListener() {
+
+        int scrolled = 0;
 
         @Override
-        public boolean onSingleTapUp(final MotionEvent e) {
-            supportInvalidateOptionsMenu();
-            toggleLeanback();
+        public void onScroll(final int l, final int t, final int oldl, final int oldt) {
+            final int deltaT = t - oldt;
 
-            if (mLeanback) {
-                mHandler.removeCallbacks(mLeanbackCallback);
-                mHandler.postDelayed(mLeanbackCallback, 2500);
+            if ((deltaT > 0 && !mLeanback) || (deltaT < 0 && mLeanback))
+                scrolled += deltaT;
+
+            if (scrolled > mSlop && !mLeanback) {
+                startLeanback();
+                scrolled = 0;
+            } else if (scrolled < -mSlop && mLeanback) {
+                endLeanback();
+                scrolled = 0;
             }
-
-            return false;
         }
-
     };
+
+    private android.view.GestureDetector.OnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener(){
+        @Override
+        public boolean onSingleTapConfirmed(final MotionEvent e) {
+            toggleLeanback();
+            return true;
+        }
+    };
+
 }
