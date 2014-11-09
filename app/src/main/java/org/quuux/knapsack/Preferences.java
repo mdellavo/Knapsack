@@ -55,7 +55,7 @@ public class Preferences extends PreferenceActivity {
     private void setupSync() {
         startActivityForResult(Identity.pickUserAccount(), Identity.REQUEST_CODE_PICK_ACCOUNT);
     }
- 
+
     @Override
     protected void onResume() {
         super.onResume();
