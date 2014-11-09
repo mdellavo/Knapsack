@@ -175,12 +175,12 @@ public class ViewerActivity extends ActionBarActivity {
     }
 
     private void load() {
-        final ArchivedPage page = (ArchivedPage) getIntent().getSerializableExtra("page");
+        final Page page = (Page) getIntent().getSerializableExtra("page");
 
         getSupportActionBar().setTitle(page.title);
         getSupportActionBar().setSubtitle(page.url);
 
-        final File file = ArchivedPage.getArchivePath(page.url, "index.mht");
+        final File file = CacheManager.getArchivePath(page.url, "index.mht");
         try {
             mContentView.loadUrl(file.toURI().toURL().toString());
         } catch (MalformedURLException e) {
@@ -190,8 +190,8 @@ public class ViewerActivity extends ActionBarActivity {
         if (!page.read) {
             page.read = true;
 
-            final File manifest = ArchivedPage.getArchivePath(page.url, "manifest.json");
-            Sack<ArchivedPage> sack = Sack.open(ArchivedPage.class, manifest);
+            final File manifest = CacheManager.getArchivePath(page.url, "manifest.json");
+            Sack<Page> sack = Sack.open(Page.class, manifest);
             sack.commit(page);
         }
     }

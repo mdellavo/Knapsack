@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:title="@string/pref_sync"
+        android:key="pref_sync">
+        >
+        <Preference
+            android:key="pref_sync_account"
+            android:persistent="false"
+            android:title=""
+            android:summary="not set"
+        />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/pref_about"
+        android:key="pref_about">
+        >
+        <Preference
+            android:key="pref_more_by_author"
+            android:persistent="false"
+            android:title="@string/more_by_author"
+            />
+
+        <Preference
+            android:key="pref_about"
+            android:persistent="false"
+            android:selectable="false"
+            android:title="@string/about"
+            android:summary="@string/version"
+            />
+    </PreferenceCategory>
+</PreferenceScreen>

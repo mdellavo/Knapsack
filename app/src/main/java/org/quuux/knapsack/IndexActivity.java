@@ -8,9 +8,11 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.FileObserver;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Pair;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -21,6 +23,8 @@ import android.widget.ListPopupWindow;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.squareup.picasso.Picasso;
 
 import org.quuux.sack.Sack;
@@ -33,39 +37,107 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-public class IndexActivity extends ActionBarActivity implements AdapterView.OnItemClickListener {
+public class IndexActivity extends ActionBarActivity implements AdapterView.OnItemClickListener, SwipeRefreshLayout.OnRefreshListener {
 
     private static final String TAG = Log.buildTag(IndexActivity.class);
+
     private static final int ITEM_OPEN = 0;
     private static final int ITEM_REFRESH = 1;
     private static final int ITEM_DELETE = 2;
-    private static final int EVENTS = (FileObserver.CREATE | FileObserver.DELETE | FileObserver.ATTRIB | FileObserver.MOVED_FROM | FileObserver.MOVED_TO);
+
     private static final long MILLIS_PER_DAY = 86400000;
 
+    private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
+
     private ListView mListView;
+    private SwipeRefreshLayout mSwipeLayout;
+    private Adapter mAdapter;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_index);
+
+        final String syncAccount = Preferences.getSyncAccount(this);
+        final boolean hasSync = !syncAccount.isEmpty();
+
+        mSwipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_container);
+        mSwipeLayout.setOnRefreshListener(this);
+        mSwipeLayout.setEnabled(hasSync);
+
         mListView = (ListView) findViewById(android.R.id.list);
         mListView.setOnItemClickListener(this);
+
+        if (checkPlayServices()) {
+            if (hasSync) {
+                GCMService.register(this, syncAccount);
+            }
+
+        } else {
+            Log.i(TAG, "No valid Google Play Services APK found.");
+        }
+
+        mAdapter = new Adapter();
+        mListView.setAdapter(mAdapter);
+
+        loadArchives();
+        sync();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        final IntentFilter filter = new IntentFilter(ArchiveService.ACTION_ARCHIVE_COMPLETE);
+        final IntentFilter filter = new IntentFilter();
+        filter.addAction(ArchiveService.ACTION_ARCHIVE_UPDATE);
+        filter.addAction(ArchiveService.ACTION_SYNC_COMPLETE);
         registerReceiver(mReceiver, filter);
 
-        loadArchives();
+        checkPlayServices();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         unregisterReceiver(mReceiver);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(final Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+
+        final boolean hasSync = Preferences.hasSyncAccount(this);
+        menu.findItem(R.id.setup_sync).setVisible(!hasSync);
+
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(final MenuItem item) {
+
+        boolean rv;
+        switch (item.getItemId()) {
+            case R.id.setup_sync:
+                startActivityForResult(Identity.pickUserAccount(), Identity.REQUEST_CODE_PICK_ACCOUNT);
+                rv = true;
+                break;
+
+            case R.id.settings:
+                startActivity(new Intent(this, Preferences.class));
+                rv = true;
+                break;
+
+            default:
+                rv = super.onOptionsItemSelected(item);
+                break;
+        }
+
+        return rv;
+    }
+
+    private void sync() {
+        mSwipeLayout.setRefreshing(true);
+        ArchiveService.sync(this);
     }
 
     private void loadArchives() {
@@ -75,15 +147,50 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     @Override
     public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
         final Intent intent = new Intent(this, ViewerActivity.class);
-        intent.putExtra("page", (ArchivedPage) mListView.getAdapter().getItem(position));
+        intent.putExtra("page", (Page) mListView.getAdapter().getItem(position));
         startActivity(intent);
     }
 
-    class Adapter extends BaseAdapter {
-        private final List<ArchivedPage> mPages;
+    private boolean checkPlayServices() {
+        int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+        if (resultCode != ConnectionResult.SUCCESS) {
+            if (GooglePlayServicesUtil.isUserRecoverableError(resultCode)) {
+                GooglePlayServicesUtil.getErrorDialog(resultCode, this,
+                        PLAY_SERVICES_RESOLUTION_REQUEST).show();
+            } else {
+                Log.i(TAG, "This device is not supported.");
+                finish();
+            }
+            return false;
+        }
+        return true;
+    }
 
-        public Adapter(final List<ArchivedPage> pages) {
-            mPages = pages;
+    @Override
+    protected void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
+        if (requestCode == Identity.REQUEST_CODE_PICK_ACCOUNT) {
+            if (resultCode == RESULT_OK) {
+                Identity.handleResponse(this, data);
+                invalidateOptionsMenu();
+            }
+        }
+    }
+
+    @Override
+    public void onRefresh() {
+        sync();
+    }
+
+    class Adapter extends BaseAdapter {
+        private final List<Page> mPages;
+
+        public Adapter() {
+            mPages = new ArrayList<Page>();
+        }
+
+        @Override
+        public boolean hasStableIds() {
+            return true;
         }
 
         @Override
@@ -92,13 +199,13 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         }
 
         @Override
-        public ArchivedPage getItem(final int position) {
+        public Page getItem(final int position) {
             return mPages.get(position);
         }
 
         @Override
         public long getItemId(final int position) {
-            return position;
+            return mPages.get(position).url.hashCode();
         }
 
         @Override
@@ -122,15 +229,15 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             return view;
         }
 
-        private void bindView(final Holder holder, final ArchivedPage page, final int position) {
+        private void bindView(final Holder holder, final Page page, final int position) {
             holder.position = position;
             holder.title.setText(page.title);
             holder.url.setText(Uri.parse(page.url).getHost());
 
-            final File favicon = ArchivedPage.getArchivePath(page.url, "favicon.png");
+            final File favicon = CacheManager.getArchivePath(page.url, "favicon.png");
             Picasso.with(IndexActivity.this).load(favicon).into(holder.favicon);
 
-            final File screenshot = ArchivedPage.getArchivePath(page.url, "screenshot.png");
+            final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
             Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot);
 
             holder.more.setOnClickListener(new View.OnClickListener() {
@@ -161,13 +268,25 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             } else if (delta < 7) {
                 rv = new SimpleDateFormat("E").format(created);
             } else {
-                rv = new SimpleDateFormat("M d").format(created);
+                rv = new SimpleDateFormat("M/d").format(created);
             }
+
             return rv;
+        }
+
+        public void update(final List<Page> pages) {
+            mPages.clear();
+            mPages.addAll(pages);
+            notifyDataSetChanged();
+        }
+
+        public void remove(final Page page) {
+            mPages.remove(page);
+            notifyDataSetChanged();
         }
     }
 
-    private void showPopup(final View v, final ArchivedPage page) {
+    private void showPopup(final View v, final Page page) {
         final Resources res = v.getContext().getResources();
 
         final ListPopupWindow popup = new ListPopupWindow(v.getContext());
@@ -202,16 +321,31 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         popup.show();
     }
 
-    private void deletePage(final ArchivedPage page) {
-        final File dir = ArchivedPage.getArchivePath(page.url);
+    private void deletePage(final Page page) {
 
-        for (final File file : dir.listFiles())
-            file.delete();
+        mAdapter.remove(page);
 
-        dir.delete();
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(final Void... voids) {
+
+                CacheManager.delete(page);
+
+                final String account = Preferences.getSyncAccount(IndexActivity.this);
+
+                if (!account.isEmpty()) {
+                    final String authToken = API.getToken(IndexActivity.this, account,
+                            GCMService.getRegistrationIntent(IndexActivity.this, account));
+                    API.deletePage(authToken, page);
+                }
+
+
+                return null;
+            }
+        }.execute();
     }
 
-    private void refreshPage(final ArchivedPage page) {
+    private void refreshPage(final Page page) {
         Intent i = new Intent(this, ArchiveService.class);
         i.setAction(Intent.ACTION_SEND);
         i.putExtra(Intent.EXTRA_SUBJECT, page.title);
@@ -219,7 +353,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         startService(i);
     }
 
-    private void openPage(final ArchivedPage page) {
+    private void openPage(final Page page) {
         Intent i = new Intent(Intent.ACTION_VIEW);
         i.setData(Uri.parse(page.url));
         startActivity(i);
@@ -232,14 +366,14 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         View more;
     }
 
-    class ScanArchivesTask extends AsyncTask<Void, Void, List<ArchivedPage>> {
+    class ScanArchivesTask extends AsyncTask<Void, Void, List<Page>> {
 
         @Override
-        protected List<ArchivedPage> doInBackground(final Void... params) {
+        protected List<Page> doInBackground(final Void... params) {
 
-            final List<ArchivedPage> rv = new ArrayList<ArchivedPage>();
+            final List<Page> rv = new ArrayList<Page>();
 
-            final File[] files = ArchivedPage.getArchivePath().listFiles();
+            final File[] files = CacheManager.getArchivePath().listFiles();
             if (files == null)
                 return rv;
 
@@ -247,10 +381,10 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
                 final File manifest = new File(file, "manifest.json");
                 final File index = new File(file, "index.mht");
-                if (file.isDirectory() && manifest.isFile() && index.isFile()) {
-                    final Sack<ArchivedPage> store = Sack.open(ArchivedPage.class, manifest);
+                if (file.isDirectory() && manifest.isFile()) {
+                    final Sack<Page> store = Sack.open(Page.class, manifest);
                     try {
-                        final Pair<Sack.Status, ArchivedPage> sacked = store.doLoad();
+                        final Pair<Sack.Status, Page> sacked = store.doLoad();
                         if (sacked.first == Sack.Status.SUCCESS) {
                             Log.d(TAG, "adding %s", sacked.second);
                             rv.add(sacked.second);
@@ -263,9 +397,9 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                 }
             }
 
-            Collections.sort(rv, new Comparator<ArchivedPage>() {
+            Collections.sort(rv, new Comparator<Page>() {
                 @Override
-                public int compare(final ArchivedPage lhs, final ArchivedPage rhs) {
+                public int compare(final Page lhs, final Page rhs) {
 
                     if (lhs.created == null && rhs.created == null)
                         return 0;
@@ -284,9 +418,9 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         }
 
         @Override
-        protected void onPostExecute(final List<ArchivedPage> pages) {
+        protected void onPostExecute(final List<Page> pages) {
             super.onPostExecute(pages);
-            mListView.setAdapter(new Adapter(pages));
+            mAdapter.update(pages);
         }
     }
 
@@ -295,9 +429,15 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         public void onReceive(final Context context, final Intent intent) {
             final String action = intent.getAction();
 
-            if (ArchiveService.ACTION_ARCHIVE_COMPLETE.equals(action))
+            if (ArchiveService.ACTION_ARCHIVE_UPDATE.equals(action))
                 loadArchives();
+            else if(ArchiveService.ACTION_SYNC_COMPLETE.equals(action))
+                onSyncComplete();
         }
     };
+
+    private void onSyncComplete() {
+        mSwipeLayout.setRefreshing(false);
+    }
 
 }

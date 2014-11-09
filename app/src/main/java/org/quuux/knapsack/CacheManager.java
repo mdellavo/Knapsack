@@ -4,21 +4,8 @@ import android.net.Uri;
 import android.os.Environment;
 
 import java.io.File;
-import java.io.Serializable;
-import java.util.Date;
 
-public class ArchivedPage implements Serializable {
-    String url;
-    String title;
-    Date created;
-    boolean read;
-
-    public ArchivedPage(final String url, final String title) {
-        this.url = url;
-        this.title = title;
-        this.created = new Date();
-    }
-
+public class CacheManager {
     public static File getArchivePath() {
         final File base = Environment.getExternalStorageDirectory();
         return new File(base, "WebArchive");
@@ -42,4 +29,25 @@ public class ArchivedPage implements Serializable {
         return new File(getArchivePath(url), filename);
     }
 
+    public static File getArchivePath(final Page page) {
+        return getArchivePath(page.url);
+    }
+
+    public static File getArchivePath(final Page page, final String filename) {
+        return getArchivePath(page.url, filename);
+    }
+
+    public static File getManifest(final Page page) {
+        return getArchivePath(page, "manifest.json");
+    }
+
+    public static void delete(final Page page) {
+        final File dir = getArchivePath(page);
+
+        for (final File file : dir.listFiles())
+            file.delete();
+
+        dir.delete();
+
+    }
 }
