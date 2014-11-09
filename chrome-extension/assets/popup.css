@@ -1,0 +1,78 @@
+body {
+    background: #eeeeee;
+    padding: 5px;
+}
+
+#main {
+    background: #fff;
+    padding: 5px 10px;
+
+    width: 400px;
+    min-width: 400px;
+    max-width: 400px;
+
+    min-height: 200px;
+    max-height: 400px;
+    overflow: scroll;
+}
+
+#status {
+    text-align: center;
+    font-weight: 800;
+    font-size: 24pt;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+#pages {
+    min-height: 300px;
+    max-height: 300px;
+    height: 300px;
+    overflow:scroll;
+}
+
+#about {
+    text-align: center;
+    border-top: 2px solid #333;
+    padding: 10px;
+}
+
+#about a {
+    font-size: 12px;
+    color: #060;
+    font-style: italic;
+    text-decoration: none;
+    outline: none;
+}
+
+.page {
+    margin-bottom: 10px;
+}
+
+.page .body {
+    width: 380px;
+    max-width: 380px;
+    min-width: 380px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.page .title {
+    cursor: pointer;
+}
+
+.page .delete {
+    font-weight: bold;
+    float: right;
+    color: #900;
+    text-size: 14px;
+    cursor: pointer;
+}
+
+.add {
+    cursor: pointer;
+    color: #000099;
+}
+
