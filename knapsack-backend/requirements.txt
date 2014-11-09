@@ -1,0 +1,6 @@
+transaction
+pyramid
+sqlalchemy
+python-gcm
+requests
+fabric

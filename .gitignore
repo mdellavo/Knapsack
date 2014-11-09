@@ -6,3 +6,10 @@
 /build
 .idea
 *.iml
+*.keystore
+bower_components
+node_modules
+*.sqlite
+*.pyc
+build
+*.egg-info
