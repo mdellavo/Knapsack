@@ -114,7 +114,14 @@ public class ArchiveService extends IntentService {
     private void upload() {
         final List<Page> localPages = new ArrayList<Page>();
         final File dir = CacheManager.getArchivePath();
-        for (final File f : dir.listFiles()) {
+        if (!dir.exists())
+            return;
+
+        final File[] files =  dir.listFiles();
+        if (files == null)
+            return;
+
+        for (final File f : files) {
             if (f.isDirectory()) {
                 final File manifest = new File(f, "manifest.json");
                 Sack<Page> store = Sack.open(Page.class, manifest);
