@@ -34,7 +34,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.SynchronousQueue;
 import java.util.regex.Matcher;
 
 public class ArchiveService extends IntentService {
@@ -50,7 +54,8 @@ public class ArchiveService extends IntentService {
 
     private static final String EXTRA_PAGE = "page";
 
-    final Handler mHandler = new Handler();
+    private final Handler mHandler = new Handler();
+    private final BlockingQueue<Page> mQueue = new ArrayBlockingQueue<Page>(1);
 
     public ArchiveService() {
         super(ArchiveService.class.getName());
@@ -99,8 +104,14 @@ public class ArchiveService extends IntentService {
                         intent.getStringExtra(Intent.EXTRA_SUBJECT)
                 );
 
-            if (page != null)
+            if (page != null) {
+                final File parent = CacheManager.getArchivePath(page);
+
+                if (!parent.exists())
+                    parent.mkdirs();
+
                 archivePage(page);
+            }
 
         } else if (ArchiveService.ACTION_SYNC.equals(action)) {
             sync();
@@ -216,7 +227,7 @@ public class ArchiveService extends IntentService {
         return getPage(title, url);
     }
 
-    private void archivePage(final Page page) {
+    private Page archivePage(final Page page) {
 
         mHandler.post(new Runnable() {
             @Override
@@ -225,6 +236,14 @@ public class ArchiveService extends IntentService {
             }
         });
 
+        Page result = null;
+        try {
+            result = mQueue.take();
+        } catch (InterruptedException e) {
+            Log.e(TAG, "error getting result", e);
+        }
+
+        return result;
     }
 
     private Page getPage(final String title, final String url) {
@@ -257,20 +276,19 @@ public class ArchiveService extends IntentService {
 
     private void commitPage(final Page page) {
 
-        final File parent = CacheManager.getArchivePath(page);
-
-        if (!parent.exists())
-            parent.mkdirs();
-
         final File manifest = CacheManager.getArchivePath(page.url, "manifest.json");
-        Sack<Page> store = Sack.open(Page.class, manifest);
+        final Sack<Page> store = Sack.open(Page.class, manifest);
         store.commit(page, new Sack.Listener<Page>() {
             @Override
             public void onResult(final Sack.Status status, final Page obj) {
                 broadcastUpdate();
+                try {
+                    mQueue.put(obj);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "error putting result", e);
+                }
             }
         });
-
     }
 
     private void broadcastUpdate() {
@@ -283,14 +301,16 @@ public class ArchiveService extends IntentService {
         });
     }
 
-    private void saveBitmap(final Intent intent, final String key, final File path) {
+    private AsyncTask<Void, Void, Void> saveBitmap(final Intent intent, final String key, final File path) {
+        AsyncTask<Void, Void, Void> rv = null;
         if (intent.hasExtra(key)) {
-            saveBitmap((Bitmap) intent.getParcelableExtra(key), path, 0, 0);
+            rv = saveBitmap((Bitmap) intent.getParcelableExtra(key), path, 0, 0);
         }
+        return rv;
     }
 
-    private void saveBitmap(final Bitmap bitmap, final File path, final int width, final int height) {
-        new AsyncTask<Void, Void, Void>() {
+    private AsyncTask<Void, Void, Void> saveBitmap(final Bitmap bitmap, final File path, final int width, final int height) {
+        return new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(final Void[] params) {
 
@@ -484,8 +504,6 @@ public class ArchiveService extends IntentService {
             notifyError(builder, page);
 
         savePage(page, view);
-        destoryWebView(view);
-
         commitPage(page);
     }
 

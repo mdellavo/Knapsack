@@ -25,6 +25,7 @@ import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
 
 import org.quuux.sack.Sack;
@@ -238,7 +239,16 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             Picasso.with(IndexActivity.this).load(favicon).into(holder.favicon);
 
             final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
-            Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot);
+            Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot, new Callback() {
+                @Override
+                public void onSuccess() {
+                }
+
+                @Override
+                public void onError() {
+                    Picasso.with(IndexActivity.this).load(favicon).into(holder.screenshot);
+                }
+            });
 
             holder.more.setOnClickListener(new View.OnClickListener() {
                 @Override

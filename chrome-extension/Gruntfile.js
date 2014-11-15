@@ -2,6 +2,9 @@ module.exports = function (grunt) {
 
     var DEBUG = false;
 
+    var manifest = grunt.file.readJSON('manifest.json');
+
+
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
         uglify: {
@@ -27,18 +30,28 @@ module.exports = function (grunt) {
 
         jshint: {
             all: ['Gruntfile.js', 'src/**/*.js']
+        },
+
+        exec: {
+            pack: 'zip -r ../builds/knapsack-chrome-extension-' + manifest.version + '.zip build'
         }
     });
 
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-contrib-jshint');
+    grunt.loadNpmTasks('grunt-exec');
 
     grunt.registerTask('default', function () {
         grunt.task.run(['jshint', 'uglify']);
+
         grunt.file.copy('assets/icon.png', 'build/icon.png');
         grunt.file.copy('assets/popup.html', 'build/popup.html');
         grunt.file.copy('assets/popup.css', 'build/popup.css');
         grunt.file.copy('manifest.json', 'build/manifest.json');
+        grunt.file.copy('key.pem', 'build/key.pem');
+
+        grunt.task.run(['exec:pack']);
+
     });
 
 };
