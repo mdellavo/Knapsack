@@ -170,22 +170,18 @@ public class ArchiveService extends IntentService {
     private void sync() {
         Log.d(TAG, "fetching pages...");
 
-
         final String authToken = getAuthToken();
 
         if (authToken != null) {
             final List<Page> pages = API.getPages(authToken);
 
             if (pages != null) {
+                for (final Page p : pages) {
 
-                for (final Page page : pages) {
-                    final File manifest = CacheManager.getManifest(page);
-                    if (!manifest.exists()) {
-                        commitPage(page);
+                    final Page page = getPage(p.title, p.url);
 
-                        Log.d(TAG, "synced: %s / %s / %s", page.created, page.uid, page.url);
+                    if (page.status == Page.STATUS_NEW)
                         archive(this, page);
-                    }
                 }
             } else {
                 Log.e(TAG, "error syncing pages");
@@ -274,7 +270,7 @@ public class ArchiveService extends IntentService {
         return page;
     }
 
-    private void commitPage(final Page page) {
+    private void commitPage(final Page page, final Sack.Listener<Page> callback) {
 
         final File manifest = CacheManager.getArchivePath(page.url, "manifest.json");
         final Sack<Page> store = Sack.open(Page.class, manifest);
@@ -282,13 +278,14 @@ public class ArchiveService extends IntentService {
             @Override
             public void onResult(final Sack.Status status, final Page obj) {
                 broadcastUpdate();
-                try {
-                    mQueue.put(obj);
-                } catch (InterruptedException e) {
-                    Log.e(TAG, "error putting result", e);
-                }
+                if (callback != null)
+                    callback.onResult(status, obj);
             }
         });
+    }
+
+    private void commitPage(final Page page) {
+        commitPage(page, null);
     }
 
     private void broadcastUpdate() {
@@ -393,6 +390,7 @@ public class ArchiveService extends IntentService {
                 super.onReceivedIcon(view, icon);
                 if (icon != null)
                     saveBitmap(icon, CacheManager.getArchivePath(page.url, "favicon.png"), 0, 0);
+                broadcastUpdate();
             }
 
             @Override
@@ -470,15 +468,16 @@ public class ArchiveService extends IntentService {
                 builder.setProgress(0, 0, true);
                 builder.setContentTitle(getString(R.string.archiving));
                 builder.setContentText(page.title);
+                updateNotification(builder.build(), page);
 
                 mHandler.removeCallbacks(timeout);
-                mHandler.postDelayed(success, 10 * 1000); // give it a little breathing room for ajax loads
+                mHandler.postDelayed(success, 3 * 1000); // give it a little breathing room
             }
 
             @Override
             public void onLoadResource(final WebView view, final String url) {
                 super.onLoadResource(view, url);
-                Log.d(TAG, "loading: %s", url);
+                //Log.d(TAG, "loading: %s", url);
             }
 
             @Override
@@ -504,7 +503,17 @@ public class ArchiveService extends IntentService {
             notifyError(builder, page);
 
         savePage(page, view);
-        commitPage(page);
+
+        commitPage(page, new Sack.Listener<Page>() {
+            @Override
+            public void onResult(final Sack.Status status, final Page obj) {
+                try {
+                    mQueue.put(obj);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "error putting result");
+                }
+            }
+        });
     }
 
     private void updateNotification(final Notification notification, final Page page) {

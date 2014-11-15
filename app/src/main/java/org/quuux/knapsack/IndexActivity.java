@@ -448,6 +448,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
     private void onSyncComplete() {
         mSwipeLayout.setRefreshing(false);
+        loadArchives();
     }
 
 }
