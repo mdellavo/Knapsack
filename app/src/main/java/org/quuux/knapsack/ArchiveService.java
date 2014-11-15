@@ -39,6 +39,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
 public class ArchiveService extends IntentService {
@@ -110,7 +111,8 @@ public class ArchiveService extends IntentService {
                 if (!parent.exists())
                     parent.mkdirs();
 
-                archivePage(page);
+                final Page result = archivePage(page);
+                Log.d(TAG, "result: (%s) %s", result.status, result.url);
             }
 
         } else if (ArchiveService.ACTION_SYNC.equals(action)) {
@@ -507,11 +509,7 @@ public class ArchiveService extends IntentService {
         commitPage(page, new Sack.Listener<Page>() {
             @Override
             public void onResult(final Sack.Status status, final Page obj) {
-                try {
-                    mQueue.put(obj);
-                } catch (InterruptedException e) {
-                    Log.e(TAG, "error putting result");
-                }
+                mQueue.offer(obj);
             }
         });
     }
