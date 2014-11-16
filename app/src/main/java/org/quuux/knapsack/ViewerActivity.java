@@ -62,7 +62,7 @@ public class ViewerActivity extends ActionBarActivity {
         mContentView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(final View v, final MotionEvent event) {
-                return gestureDetector.onTouchEvent(event);
+                return v.onTouchEvent(event) || gestureDetector.onTouchEvent(event);
             }
         });
         initWebView(mContentView);

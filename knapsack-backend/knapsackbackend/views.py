@@ -144,7 +144,7 @@ def notify_devices(user, event_type):
                 })
 
     if 'canonical' in resp:
-        for canonical_id, reg_id in resp.items():
+        for reg_id, canonical_id in resp['canonical'].items():
             query = and_(
                 DeviceToken.user == user,
                 DeviceToken.token == reg_id
@@ -237,3 +237,7 @@ def add_device_token(request, user):
     find_or_create_device_token(user, params.get('device_token'), params.get('model'))
 
     return ok()
+
+@view_config(route_name='root', renderer='root.mako')
+def root(request):
+    return {}

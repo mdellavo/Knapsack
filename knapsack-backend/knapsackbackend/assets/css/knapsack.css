@@ -1,0 +1,30 @@
+body {
+    background: #333;
+    padding-bottom: 70px;
+}
+
+h1 {
+    color: #eee;
+    font-family: 'Bowlby One SC';
+    text-align: center;
+    padding-top: 60px;
+    font-size: 72pt;
+    margin: 0;
+}
+
+.slug {
+    color: #ccc;
+    font-size: 32pt;
+    padding-top: 60px;
+    padding-bottom: 60px;
+    margin: 0;
+    font-weight: 100;
+}
+
+.well {
+    background: #666;
+    border: 2px solid #888;
+    padding-top: 40px;
+    paddin-bottom: 40px;
+}
+
