@@ -1,9 +1,8 @@
 .gradle
-/local.properties
-/.idea/workspace.xml
-/.idea/libraries
+local.properties
+.idea
 .DS_Store
-/build
+build
 .idea
 *.iml
 *.keystore
@@ -11,9 +10,9 @@ bower_components
 node_modules
 *.sqlite
 *.pyc
-build
 *.egg-info
 *.log
 builds
 *.pem
 *.zip
+*/dist

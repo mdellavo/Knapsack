@@ -33,6 +33,8 @@ import java.net.MalformedURLException;
 public class ViewerActivity extends ActionBarActivity {
     private static final String TAG = Log.buildTag(ViewerActivity.class);
 
+    public static final String EXTRA_PAGE = "page";
+
     private ObservableWebView mContentView;
     private boolean mLeanback;
     private Handler mHandler;
@@ -175,7 +177,7 @@ public class ViewerActivity extends ActionBarActivity {
     }
 
     private void load() {
-        final Page page = (Page) getIntent().getSerializableExtra("page");
+        final Page page = (Page) getIntent().getSerializableExtra(EXTRA_PAGE);
 
         getSupportActionBar().setTitle(page.title);
         getSupportActionBar().setSubtitle(page.url);
