@@ -3,9 +3,11 @@ package org.quuux.knapsack;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +25,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import org.quuux.sack.Sack;
 
@@ -131,7 +134,15 @@ public class ViewerActivity extends ActionBarActivity {
             @Override
             public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
                 Log.d(TAG, "override: %s", url);
-                return !isNetworkAvailable();
+
+                if (isNetworkAvailable()) {
+                    final Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                } else {
+                    Toast.makeText(ViewerActivity.this, R.string.no_network, Toast.LENGTH_LONG).show();
+                }
+
+                return true;
             }
 
             @Override
@@ -156,7 +167,7 @@ public class ViewerActivity extends ActionBarActivity {
             @Override
             public void onLoadResource(final WebView view, final String url) {
                 super.onLoadResource(view, url);
-                Log.d(TAG, "loading: %s", url);
+                //Log.d(TAG, "loading: %s", url);
             }
 
             @Override
@@ -180,7 +191,6 @@ public class ViewerActivity extends ActionBarActivity {
         final Page page = (Page) getIntent().getSerializableExtra(EXTRA_PAGE);
 
         getSupportActionBar().setTitle(page.title);
-        getSupportActionBar().setSubtitle(page.url);
 
         final File file = CacheManager.getArchivePath(page.url, "index.mht");
         try {

@@ -36,6 +36,23 @@ public class API {
 
     private static final String SCOPE = "oauth2:https://www.googleapis.com/auth/userinfo.email";
 
+    static class GetPagesResponse {
+        String status;
+        String message;
+        List<Page> pages;
+    }
+
+    static class SetPageRequest {
+        String auth_token;
+        List<Page> pages;
+
+        public SetPageRequest(final String auth_token, final List<Page> pages) {
+            super();
+            this.auth_token = auth_token;
+            this.pages = pages;
+        }
+    }
+
     private static String execute(final Request request) throws IOException {
         final OkHttpClient client = new OkHttpClient();
 
@@ -125,17 +142,6 @@ public class API {
         return rv;
     }
 
-   static class SetPageRequest {
-        String auth_token;
-        List<Page> pages;
-
-        public SetPageRequest(final String auth_token, final List<Page> pages) {
-            super();
-            this.auth_token = auth_token;
-            this.pages = pages;
-        }
-    }
-
     public static boolean setPages(final String authToken, final List<Page> pages) {
         final SetPageRequest req = new SetPageRequest(authToken, pages);
         final Gson gson = getGson();
@@ -157,12 +163,6 @@ public class API {
         }
 
         return rv;
-    }
-
-    static class GetPagesResponse {
-        String status;
-        String message;
-        List<Page> pages;
     }
 
     public static List<Page> getPages(final String authToken) {

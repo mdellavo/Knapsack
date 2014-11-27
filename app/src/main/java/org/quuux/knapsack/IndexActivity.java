@@ -236,19 +236,24 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             holder.url.setText(Uri.parse(page.url).getHost());
 
             final File favicon = CacheManager.getArchivePath(page.url, "favicon.png");
-            Picasso.with(IndexActivity.this).load(favicon).into(holder.favicon);
 
-            final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
-            Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot, new Callback() {
-                @Override
-                public void onSuccess() {
-                }
-
+            final Callback fallbackIcon = new Callback.EmptyCallback() {
                 @Override
                 public void onError() {
-                    Picasso.with(IndexActivity.this).load(favicon).into(holder.screenshot);
+                    Picasso.with(IndexActivity.this).load(R.drawable.ic_cloud).fit().centerInside().into(holder.favicon);
                 }
-            });
+            };
+
+            final Callback loadFavicon = new Callback.EmptyCallback() {
+                @Override
+                public void onError() {
+                    holder.screenshot.setImageDrawable(getDrawable(R.drawable.blank));
+                    Picasso.with(IndexActivity.this).load(favicon).fit().centerInside().into(holder.favicon, fallbackIcon);
+                }
+            };
+
+            final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
+            Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot, loadFavicon);
 
             holder.more.setOnClickListener(new View.OnClickListener() {
                 @Override
