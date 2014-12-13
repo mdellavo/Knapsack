@@ -146,15 +146,17 @@ var PopupView = Backbone.View.extend({
         this.pagesView.render();
 
         this.loadPages();
+
+        this.$('#url').val(this.page.get('url'));
     },
 
     setStatus: function(status) {
-        this.$el.find('#status').html(status ? "Saved to Knapsack!" : "Error saving to Knapsack!");
+        this.$el.find('.add').html(status);
     },
 
     updateStatus: function() {
         if (this.pages.get(this.page.get('url'))) {
-            this.setStatus(true);
+            this.setStatus('Added');
         }
     },
 
@@ -164,7 +166,7 @@ var PopupView = Backbone.View.extend({
         var $spin = $(e.target);
         $spin.spin('small');
 
-        this.setStatus('Saving to Knapsack...');
+        this.setStatus('Adding...');
 
         var view = this;
 
@@ -175,6 +177,7 @@ var PopupView = Backbone.View.extend({
         post(PAGES_ENDPOINT, params, function(resp) {
             $spin.spin(false);
             view.pagesLoaded(resp);
+            view.setStatus(resp.status == 'ok' ? 'Added' : 'Error!');
         });
     },
 
@@ -203,6 +206,7 @@ var PopupView = Backbone.View.extend({
 document.addEventListener('DOMContentLoaded', function() {
 
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+
         var page = new Page({
             url: tabs[0].url
         });
