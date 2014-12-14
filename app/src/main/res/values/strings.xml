@@ -25,6 +25,25 @@
     <string name="sign_in">Sign in to sync</string>
     <string name="no_network">Network is not available</string>
 
+    <string name="nag_title">Welcome to Knapsack</string>
+    <string name="nag_text">
+        <![CDATA[
+        <p>
+            Development of Knapsack is made possible through the support of <b>viewers like you!</b>
+        </p>
+        <p>
+            By <b>purchasing Knapsack</b>, you will receive the <b>full Knapsack experience!</b>
+        </p>
+        <p>
+            &#8226; <em>All nagging will be removed!</em><br/>
+            &#8226; <em>Cloud Sync across devices!</em><br/>
+            &#8226; <em>Access to premium and beta features!</em>
+        </p>
+        ]]>
+    </string>
+
+    <string name="purchase_call_to_action">Buy now</string>
+    <string name="nag_thank_you">Thank you for installing Knapsack!</string>
 
     <string-array name="more">
         <item>Open</item>

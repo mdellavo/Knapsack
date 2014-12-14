@@ -1,15 +1,26 @@
 package org.quuux.knapsack;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.IntentSender;
+import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.support.v4.app.DialogFragment;
+import android.support.v4.app.FragmentManager;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBarActivity;
+import android.text.Html;
 import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -18,11 +29,13 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ListPopupWindow;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.android.vending.billing.IInAppBillingService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.squareup.picasso.Callback;
@@ -36,7 +49,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class IndexActivity extends ActionBarActivity implements AdapterView.OnItemClickListener, SwipeRefreshLayout.OnRefreshListener {
 
@@ -50,13 +65,21 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
     private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
 
+    private static final String ACTION_PURCHASE = "org.quuux.knapsack.action.PURCHASE";
+    private static final String SKU_PREMIUM = "premium";
+
     private ListView mListView;
     private SwipeRefreshLayout mSwipeLayout;
     private Adapter mAdapter;
 
+    private static boolean sNagShown;
+    private Set<String> mPurchases = Collections.<String>emptySet();
+    private IInAppBillingService mService;
+
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_index);
 
         final String syncAccount = Preferences.getSyncAccount(this);
@@ -78,6 +101,13 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             Log.i(TAG, "No valid Google Play Services APK found.");
         }
 
+        final Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
+        serviceIntent.setPackage("com.android.vending");
+        bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
+
+        mPurchases = Preferences.getPurchases(this);
+        onPurchasesUpdated();
+
         mAdapter = new Adapter();
         mListView.setAdapter(mAdapter);
 
@@ -92,6 +122,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         final IntentFilter filter = new IntentFilter();
         filter.addAction(ArchiveService.ACTION_ARCHIVE_UPDATE);
         filter.addAction(ArchiveService.ACTION_SYNC_COMPLETE);
+        filter.addAction(ACTION_PURCHASE);
         registerReceiver(mReceiver, filter);
 
         checkPlayServices();
@@ -136,9 +167,10 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         return rv;
     }
 
-    private void sync() {
-        mSwipeLayout.setRefreshing(true);
-        ArchiveService.sync(this);
+    @Override
+    public void onBackPressed() {
+        sNagShown = false;
+        super.onBackPressed();
     }
 
     private void loadArchives() {
@@ -177,10 +209,195 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         }
     }
 
+    public void sendEvent(final String category, final String action, final String label) {
+        KnapsackTracker.get(this).sendEvent(category, action, label);
+    }
+
+    public void sendEvent(final String category, final String action) {
+        sendEvent(category, action, null);
+    }
+
+    private void showNag(final boolean forced) {
+        if (!sNagShown || forced) {
+            final FragmentManager fm = getSupportFragmentManager();
+            if (fm.findFragmentByTag("nag") == null) {
+                final NagDialog dialog = NagDialog.newInstance();
+                dialog.show(getSupportFragmentManager(), "nag");
+            }
+
+            sendEvent("ui", "show nag");
+
+            sNagShown = true;
+        }
+    }
+
+    private void showNag() {
+        showNag(false);
+    }
+
+    private void startPurchase() {
+
+        if (mService == null)
+            return;
+
+        final Bundle response;
+        try {
+            response = mService.getBuyIntent(3, getPackageName(), SKU_PREMIUM, "inapp", null);
+        } catch (final RemoteException e) {
+            Log.e(TAG, "error starting purchase", e);
+            return;
+        }
+
+        final int responseCode = response.getInt("RESPONSE_CODE");
+        if (responseCode != 0) {
+            Log.d(TAG, "error starting purchase: %s", response);
+            return;
+        }
+
+        final PendingIntent pendingIntent = response.getParcelable("BUY_INTENT");
+        try {
+            startIntentSenderForResult(pendingIntent.getIntentSender(),
+                    1001, new Intent(), Integer.valueOf(0), Integer.valueOf(0),
+                    Integer.valueOf(0));
+        } catch (final IntentSender.SendIntentException e) {
+            Log.e(TAG, "error starting purchase: %s", e);
+        }
+
+        sendEvent("ui", "start purchase");
+    }
+
+
+    private void initBilling() {
+        new QueryPurchasesTask().execute();
+    }
+
+    private void onPurchasesUpdated() {
+        final boolean unlocked = mPurchases.contains(SKU_PREMIUM);
+
+        if (unlocked) {
+            hideNag();
+        } else {
+            showNag();
+        }
+
+        supportInvalidateOptionsMenu();
+    }
+
+
+    private void onPurchaseResult(final Set<String> purchases) {
+        if (purchases == null)
+            return;
+
+        mPurchases = purchases;
+        Preferences.setPurchases(this, purchases);
+        onPurchasesUpdated();
+
+    }
+
+    private void onPurchaseComplete() {
+        mPurchases.add(SKU_PREMIUM);
+        Preferences.setPurchases(this, mPurchases);
+        onPurchasesUpdated();
+        sendEvent("ui", "purchase complete");
+    }
+
+    private void hideNag() {
+        final FragmentManager fm = getSupportFragmentManager();
+        final NagDialog nag = (NagDialog) fm.findFragmentByTag("nag");
+        if (nag != null) {
+            nag.dismiss();
+        }
+
+    }
+
     @Override
     public void onRefresh() {
         sync();
     }
+
+    private void onSyncComplete() {
+        mSwipeLayout.setRefreshing(false);
+        loadArchives();
+    }
+
+    private void showPopup(final View v, final Page page) {
+        final Resources res = v.getContext().getResources();
+
+        final ListPopupWindow popup = new ListPopupWindow(v.getContext());
+        popup.setAnchorView(v);
+        popup.setWidth(res.getDimensionPixelSize(R.dimen.more_row));
+        popup.setAdapter(
+                new ArrayAdapter<String>(
+                        v.getContext(),
+                        android.R.layout.simple_list_item_1,
+                        android.R.id.text1,
+                        res.getStringArray(R.array.more)
+                )
+        );
+        popup.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
+                switch (position) {
+                    case ITEM_OPEN:
+                        openPage(page);
+                        break;
+                    case ITEM_REFRESH:
+                        refreshPage(page);
+                        break;
+                    case ITEM_DELETE:
+                        deletePage(page);
+                        break;
+                }
+
+                popup.dismiss();
+            }
+        });
+        popup.show();
+    }
+
+    private void deletePage(final Page page) {
+
+        mAdapter.remove(page);
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(final Void... voids) {
+
+                CacheManager.delete(page);
+
+                final String account = Preferences.getSyncAccount(IndexActivity.this);
+
+                if (!account.isEmpty()) {
+                    final String authToken = API.getToken(IndexActivity.this, account,
+                            GCMService.getRegistrationIntent(IndexActivity.this, account));
+                    API.deletePage(authToken, page);
+                }
+
+
+                return null;
+            }
+        }.execute();
+    }
+
+    private void sync() {
+        mSwipeLayout.setRefreshing(true);
+        ArchiveService.sync(this);
+    }
+
+    private void refreshPage(final Page page) {
+        Intent i = new Intent(this, ArchiveService.class);
+        i.setAction(Intent.ACTION_SEND);
+        i.putExtra(Intent.EXTRA_SUBJECT, page.title);
+        i.putExtra(Intent.EXTRA_TEXT, page.url);
+        startService(i);
+    }
+
+    private void openPage(final Page page) {
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setData(Uri.parse(page.url));
+        startActivity(i);
+    }
+
 
     class Adapter extends BaseAdapter {
         private final List<Page> mPages;
@@ -301,79 +518,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         }
     }
 
-    private void showPopup(final View v, final Page page) {
-        final Resources res = v.getContext().getResources();
-
-        final ListPopupWindow popup = new ListPopupWindow(v.getContext());
-        popup.setAnchorView(v);
-        popup.setWidth(res.getDimensionPixelSize(R.dimen.more_row));
-        popup.setAdapter(
-                new ArrayAdapter<String>(
-                        v.getContext(),
-                        android.R.layout.simple_list_item_1,
-                        android.R.id.text1,
-                        res.getStringArray(R.array.more)
-                )
-        );
-        popup.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
-                switch (position) {
-                    case ITEM_OPEN:
-                        openPage(page);
-                        break;
-                    case ITEM_REFRESH:
-                        refreshPage(page);
-                        break;
-                    case ITEM_DELETE:
-                        deletePage(page);
-                        break;
-                }
-
-                popup.dismiss();
-            }
-        });
-        popup.show();
-    }
-
-    private void deletePage(final Page page) {
-
-        mAdapter.remove(page);
-
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(final Void... voids) {
-
-                CacheManager.delete(page);
-
-                final String account = Preferences.getSyncAccount(IndexActivity.this);
-
-                if (!account.isEmpty()) {
-                    final String authToken = API.getToken(IndexActivity.this, account,
-                            GCMService.getRegistrationIntent(IndexActivity.this, account));
-                    API.deletePage(authToken, page);
-                }
-
-
-                return null;
-            }
-        }.execute();
-    }
-
-    private void refreshPage(final Page page) {
-        Intent i = new Intent(this, ArchiveService.class);
-        i.setAction(Intent.ACTION_SEND);
-        i.putExtra(Intent.EXTRA_SUBJECT, page.title);
-        i.putExtra(Intent.EXTRA_TEXT, page.url);
-        startService(i);
-    }
-
-    private void openPage(final Page page) {
-        Intent i = new Intent(Intent.ACTION_VIEW);
-        i.setData(Uri.parse(page.url));
-        startActivity(i);
-    }
-
     class Holder {
         int position;
         TextView url, title, created, read;
@@ -448,12 +592,98 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                 loadArchives();
             else if(ArchiveService.ACTION_SYNC_COMPLETE.equals(action))
                 onSyncComplete();
+            else if (ACTION_PURCHASE.equals(action))
+                startPurchase();
         }
     };
 
-    private void onSyncComplete() {
-        mSwipeLayout.setRefreshing(false);
-        loadArchives();
+    public static class NagDialog extends DialogFragment {
+
+        public NagDialog() {
+            super();
+        }
+
+        public static NagDialog newInstance() {
+            final NagDialog rv = new NagDialog();
+            return rv;
+        }
+
+        @Override
+        public Dialog onCreateDialog(final Bundle savedInstanceState) {
+            final Context context = getActivity();
+            if (context == null)
+                return null;
+
+            final View v = getActivity().getLayoutInflater().inflate(R.layout.nag_dialog, null);
+            if (v == null)
+                return null;
+
+            final TextView nagText = (TextView) v.findViewById(R.id.nag_text);
+            nagText.setText(Html.fromHtml(getString(R.string.nag_text)));
+
+            final Button button = (Button) v.findViewById(R.id.purchase_button);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(final View v) {
+                    context.sendBroadcast(new Intent(ACTION_PURCHASE));
+                }
+            });
+
+            final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+
+            final Dialog dialog = builder.setTitle(R.string.nag_title)
+                    .setCancelable(false)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setView(v)
+                    .create();
+
+            dialog.setCancelable(false);
+            dialog.setCanceledOnTouchOutside(false);
+
+            return dialog;
+        }
     }
 
+    final ServiceConnection mServiceConn = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(final ComponentName name, final IBinder service) {
+            mService = IInAppBillingService.Stub.asInterface(service);
+            initBilling();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mService = null;
+        }
+    };
+
+    class QueryPurchasesTask extends AsyncTask<String, Void, Set<String>> {
+
+        @Override
+        protected Set<String> doInBackground(final String... params) {
+            final Bundle purchases;
+            try {
+                purchases = mService.getPurchases(3, getPackageName(), "inapp", null);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+                return null;
+            }
+
+            final int response = purchases.getInt("RESPONSE_CODE");
+            if (response != 0) {
+                Log.e(TAG, "Error querying purchases: %s", purchases);
+                return null;
+            }
+
+            final List<String> purchasedSkus = purchases.getStringArrayList("INAPP_PURCHASE_ITEM_LIST");
+            final Set<String> rv = new HashSet<String>();
+            rv.addAll(purchasedSkus);
+            return rv;
+        }
+
+        @Override
+        protected void onPostExecute(final Set<String> purchases) {
+            onPurchaseResult(purchases);
+        }
+    }
 }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="ga_sessionTimeout">300</integer>
+
+    <bool name="ga_autoActivityTracking">true</bool>
+    <bool name="ga_reportUncaughtExceptions">true</bool>
+
+    <screenName name="org.quuux.knapsack.IndexActivity">
+        Index
+    </screenName>
+
+    <screenName name="org.quuux.knapsack.ViewerActivity">
+        Viewer
+    </screenName>
+
+    <string name="ga_trackingId">UA-51555701-3</string>
+</resources>

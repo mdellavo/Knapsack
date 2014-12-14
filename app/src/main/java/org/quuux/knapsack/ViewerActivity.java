@@ -2,6 +2,7 @@ package org.quuux.knapsack;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -137,7 +138,11 @@ public class ViewerActivity extends ActionBarActivity {
 
                 if (isNetworkAvailable()) {
                     final Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
+                    try {
+                        startActivity(intent);
+                    } catch(ActivityNotFoundException e) {
+
+                    }
                 } else {
                     Toast.makeText(ViewerActivity.this, R.string.no_network, Toast.LENGTH_LONG).show();
                 }

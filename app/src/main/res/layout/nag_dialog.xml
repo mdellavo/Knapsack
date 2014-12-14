@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <RelativeLayout android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/icon"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:paddingTop="10dp"
+            android:paddingLeft="10dp"
+            android:src="@drawable/ic_launcher"/>
+
+        <TextView
+            android:layout_toRightOf="@id/icon"
+            android:layout_alignTop="@id/icon"
+            android:layout_alignBottom="@id/icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/nag_thank_you"
+            android:textSize="18sp"
+            android:paddingTop="30dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:gravity="center_vertical|center_horizontal"
+            android:layout_above="@+id/nag_text"
+
+            />
+
+
+        <TextView
+            android:id="@+id/nag_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:layout_below="@id/icon"
+            android:text="@string/nag_text"
+            />
+
+        <FrameLayout
+            android:layout_below="@id/nag_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingRight="15dp"
+            android:paddingLeft="15dp"
+            android:paddingBottom="20dp">
+            <Button
+                android:id="@+id/purchase_button"
+                android:layout_below="@id/icon"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:text="@string/purchase_call_to_action"
+                android:background="@drawable/call_to_action"
+                />
+        </FrameLayout>
+
+    </RelativeLayout>
+</ScrollView>
