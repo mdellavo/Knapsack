@@ -64,7 +64,6 @@
             android:exported="false" >
         </service>
 
-
         <receiver
             android:name=".GCMBroadcastReceiver"
             android:permission="com.google.android.c2dm.permission.SEND" >
@@ -73,6 +72,14 @@
                 <category android:name="org.quuux.knapsack" />
             </intent-filter>
         </receiver>
+
+        <receiver android:name=".StatusBroadcastReceiver">
+            <intent-filter>
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE"/>
+            </intent-filter>
+        </receiver>
+
+
     </application>
 
 </manifest>

@@ -9,11 +9,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.http.SslError;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
 import android.util.Pair;
 import android.util.Patterns;
@@ -34,13 +37,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
 public class ArchiveService extends IntentService {
@@ -50,14 +53,16 @@ public class ArchiveService extends IntentService {
     public static final String ACTION_ARCHIVE_UPDATE = "org.quuux.knapsack.action.ARCHIVE_UPDATE";
     public static final String ACTION_SYNC = "org.quuux.knapsack.action.SYNC";
     public static final String ACTION_ARCHIVE = "org.quuux.knapsack.action.ARCHIVE";
-    private static final String ACTION_UPLOAD = "org.quuux.knapsack.action.UPLOAD";
-
+    public static final String ACTION_UPLOAD = "org.quuux.knapsack.action.UPLOAD";
     public static final String ACTION_SYNC_COMPLETE = "org.quuux.knapsack.action.SYNC_COMPLETE";
 
     private static final String EXTRA_PAGE = "page";
 
+    private static final Set<Page> mArchiving = Collections.newSetFromMap(new ConcurrentHashMap<Page, Boolean>());
+
     private final Handler mHandler = new Handler();
-    private final BlockingQueue<Page> mQueue = new ArrayBlockingQueue<Page>(1);
+    private final BlockingQueue<Page> mQueue = new ArrayBlockingQueue<>(1);
+    private ConnectivityManager mConnectivityManager;
 
     public ArchiveService() {
         super(ArchiveService.class.getName());
@@ -76,10 +81,25 @@ public class ArchiveService extends IntentService {
     }
 
     public static void archive(final Context context, final Page page) {
+        if (isArchiving(page))
+            return;
+
+        mArchiving.add(page);
+
         final Intent intent = new Intent(context, ArchiveService.class);
         intent.setAction(ACTION_ARCHIVE);
         intent.putExtra(EXTRA_PAGE, page);
         context.startService(intent);
+    }
+
+    public static boolean isArchiving(final Page page) {
+        return mArchiving.contains(page);
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
     }
 
     @Override
@@ -95,38 +115,80 @@ public class ArchiveService extends IntentService {
             dumpExtras(intent);
 
         final String action = intent.getAction();
-        if (Intent.ACTION_SEND.equals(action) || ACTION_ARCHIVE.equals(action)) {
+        switch (action) {
+            case Intent.ACTION_SEND:
+            case ACTION_ARCHIVE:
 
-            final Page page;
-            if (intent.hasExtra(EXTRA_PAGE))
-                page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
-            else
-                page = extractPage(
-                        intent.getStringExtra(Intent.EXTRA_TEXT),
-                        intent.getStringExtra(Intent.EXTRA_SUBJECT)
-                );
+                final Page page;
+                if (intent.hasExtra(EXTRA_PAGE))
+                    page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
+                else
+                    page = extractPage(
+                            intent.getStringExtra(Intent.EXTRA_TEXT),
+                            intent.getStringExtra(Intent.EXTRA_SUBJECT)
+                    );
 
-            if (page != null) {
-                final File parent = CacheManager.getArchivePath(page);
+                if (page != null) {
+                    mArchiving.add(page);
 
-                if (!parent.exists())
-                    parent.mkdirs();
+                    final File parent = CacheManager.getArchivePath(page);
 
-                final Page result = archivePage(page);
-                Log.d(TAG, "result: (%s) %s", result.status, result.url);
-            }
+                    if (!parent.exists())
+                        if (!parent.mkdirs())
+                            Log.e(TAG, "error creating directory: %s", parent);
 
-        } else if (ArchiveService.ACTION_SYNC.equals(action)) {
-            sync();
-        } else if (ArchiveService.ACTION_UPLOAD.equals(action)) {
-            upload();
+                    final File manifest = CacheManager.getManifest(page);
+                    if (!manifest.exists()) {
+                        try {
+                            commitPage(page).get();
+                        } catch (InterruptedException | ExecutionException e) {
+                            Log.e(TAG, "error committing page", e);
+                        }
+                    }
+
+                    if (isConnected()) {
+
+                        if (!Preferences.wifiOnly(this) || isWifi()) {
+                            final Page result = archivePage(page);
+                            Log.d(TAG, "result: (%s) %s", result.status, result.url);
+                        }
+
+                        final String authToken = getAuthToken();
+                        if (authToken != null)
+                            API.addPage(authToken, page);
+                    }
+
+                    mArchiving.remove(page);
+                }
+
+                break;
+            case ArchiveService.ACTION_SYNC:
+                sync();
+                break;
+            case ArchiveService.ACTION_UPLOAD:
+                upload();
+                break;
         }
 
         GCMBroadcastReceiver.completeWakefulIntent(intent);
     }
 
-    private void upload() {
-        final List<Page> localPages = new ArrayList<Page>();
+    private boolean isConnected() {
+        final NetworkInfo activeNetwork = mConnectivityManager.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
+    }
+
+    private boolean isWifi() {
+        final NetworkInfo activeNetwork = mConnectivityManager.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.getType() == ConnectivityManager.TYPE_WIFI;
+    }
+
+    private void upload()
+    {
+        if (!isConnected())
+            return;
+
+        final List<Page> localPages = new ArrayList<>();
         final File dir = CacheManager.getArchivePath();
         if (!dir.exists())
             return;
@@ -144,9 +206,7 @@ public class ArchiveService extends IntentService {
                     if (result.first == Sack.Status.SUCCESS) {
                         localPages.add(result.second);
                     }
-                } catch (InterruptedException e) {
-                    Log.e(TAG, "error loading sack", e);
-                } catch (ExecutionException e) {
+                } catch (InterruptedException | ExecutionException e) {
                     Log.e(TAG, "error loading sack", e);
                 }
             }
@@ -171,6 +231,9 @@ public class ArchiveService extends IntentService {
     }
 
     private void sync() {
+        if (!isConnected())
+            return;
+
         Log.d(TAG, "fetching pages...");
 
         final String authToken = getAuthToken();
@@ -273,11 +336,11 @@ public class ArchiveService extends IntentService {
         return page;
     }
 
-    private void commitPage(final Page page, final Sack.Listener<Page> callback) {
+    private AsyncTask<Page, Void, Pair<Sack.Status, Page>> commitPage(final Page page, final Sack.Listener<Page> callback) {
 
         final File manifest = CacheManager.getArchivePath(page.url, "manifest.json");
         final Sack<Page> store = Sack.open(Page.class, manifest);
-        store.commit(page, new Sack.Listener<Page>() {
+        return store.commit(page, new Sack.Listener<Page>() {
             @Override
             public void onResult(final Sack.Status status, final Page obj) {
                 broadcastUpdate();
@@ -287,8 +350,8 @@ public class ArchiveService extends IntentService {
         });
     }
 
-    private void commitPage(final Page page) {
-        commitPage(page, null);
+    private AsyncTask<Page, Void, Pair<Sack.Status, Page>> commitPage(final Page page) {
+        return commitPage(page, null);
     }
 
     private void broadcastUpdate() {
@@ -299,14 +362,6 @@ public class ArchiveService extends IntentService {
                 sendBroadcast(intent);
             }
         });
-    }
-
-    private AsyncTask<Void, Void, Void> saveBitmap(final Intent intent, final String key, final File path) {
-        AsyncTask<Void, Void, Void> rv = null;
-        if (intent.hasExtra(key)) {
-            rv = saveBitmap((Bitmap) intent.getParcelableExtra(key), path, 0, 0);
-        }
-        return rv;
     }
 
     private AsyncTask<Void, Void, Void> saveBitmap(final Bitmap bitmap, final File path, final int width, final int height) {
@@ -444,7 +499,7 @@ public class ArchiveService extends IntentService {
             }
 
             @Override
-            public void onReceivedSslError(final WebView view, final SslErrorHandler handler, final SslError error) {
+            public void onReceivedSslError(final WebView view, @NonNull final SslErrorHandler handler, final SslError error) {
                 super.onReceivedSslError(view, handler, error);
                 Log.d(TAG, "ssl error: %s", error);
                 handler.proceed();
@@ -511,6 +566,7 @@ public class ArchiveService extends IntentService {
             notifyError(builder, page);
 
         savePage(page, view);
+        destoryWebView(view);
 
         commitPage(page, new Sack.Listener<Page>() {
             @Override

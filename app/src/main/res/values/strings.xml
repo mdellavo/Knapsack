@@ -44,6 +44,13 @@
 
     <string name="purchase_call_to_action">Buy now</string>
     <string name="nag_thank_you">Thank you for installing Knapsack!</string>
+    <string name="delete_page_title">Delete Page</string>
+    <string name="delete_page_message">Are you sure you want to delete this page from your knapsack</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="archive_page_title">Archive Page</string>
+    <string name="archive_page_message">This page has been added to your knapsack but not archived successfully. Would you like to archive this page now?</string>
+    <string name="archive">Archive</string>
 
     <string-array name="more">
         <item>Open</item>

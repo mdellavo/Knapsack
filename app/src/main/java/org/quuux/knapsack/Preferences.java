@@ -20,11 +20,12 @@ public class Preferences extends PreferenceActivity {
 
     private static final String TAG = Log.buildTag(Preferences.class);
 
-    private static final String PROPERTY_SYNC_ACCOUNT = "sync_account";
-    private static final String PROPERTY_REG_ID = "registration_id";
-    private static final String PROPERTY_APP_VERSION = "app_version";
+    private static final String PROPERTY_SYNC_ACCOUNT = "sync-account";
+    private static final String PROPERTY_REG_ID = "registration-id";
+    private static final String PROPERTY_APP_VERSION = "app-version";
     private static final String PROPERTY_PURCHASES = "purchases";
     private static final String PROPERTY_FIRST_RUN = "first-run";
+    private static final String PROPERTY_WIFI_ONLY = "wifi-only";
 
     private static final String PREF_SYNC_ACCOUNT = "pref_sync_account";
     private static final String PREF_MORE = "pref_more_by_author";
@@ -88,45 +89,9 @@ public class Preferences extends PreferenceActivity {
         mPrefSync.setSummary(setup ? syncAccount : getString(R.string.not_set));
     }
 
-    // ----
-
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
-    static void putStringSet(final SharedPreferences.Editor edit, final String key, final Set<String> val) {
-        if (false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            edit.putStringSet(key, val);
-        }
-
-        final StringBuilder sb = new StringBuilder();
-        final String[] arr = val.toArray(new String[val.size()]);
-        for (int i=0; i<arr.length; i++) {
-            if (i>0)
-                sb.append("|");
-            sb.append(arr[i]);
-        }
-
-        edit.putString(key, sb.toString());
-    }
-
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
-    static Set<String> getStringSet(final SharedPreferences prefs, final String key, final Set<String> defaults) {
-        if (false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            return prefs.getStringSet(key, defaults);
-        }
-
-        final String values = prefs.getString(key, "");
-        final String[] purchases = values.split("\\|", -1);
-
-        final Set<String> rv = new HashSet<String>(purchases.length);
-        for (final String p : purchases)
-            rv.add(p);
-
-        return rv;
-    }
-
     public static SharedPreferences get(final Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context);
     }
-
 
     public static SharedPreferences.Editor edit(final Context context) {
         return get(context).edit();
@@ -180,23 +145,26 @@ public class Preferences extends PreferenceActivity {
         commit(editor);
     }
 
-
     public static boolean hasSyncAccount(final Context context) {
         return !getSyncAccount(context).isEmpty();
     }
 
     public static void setPurchases(final Context context, final Set<String> purchases) {
         final SharedPreferences.Editor edit = edit(context);
-        putStringSet(edit, PROPERTY_PURCHASES, purchases);
+        edit.putStringSet(PROPERTY_PURCHASES, purchases);
         commit(edit);
     }
 
     public static Set<String> getPurchases(final Context context) {
-        return getStringSet(get(context), PROPERTY_PURCHASES, Collections.<String>emptySet());
+        return get(context).getStringSet(PROPERTY_PURCHASES, Collections.<String>emptySet());
     }
 
     public static boolean isFirstRun(final Context context) {
         return get(context).getBoolean(PROPERTY_FIRST_RUN, true);
+    }
+
+    public static boolean wifiOnly(final Context context) {
+        return get(context).getBoolean(PROPERTY_WIFI_ONLY, true);
     }
 
     public static void markFirstRun(final Context context) {

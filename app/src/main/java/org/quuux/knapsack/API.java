@@ -53,6 +53,17 @@ public class API {
         }
     }
 
+    static class AddPageRequest {
+        String auth_token;
+        Page page;
+
+        public AddPageRequest(final String authToken, final Page page) {
+            super();
+            this.auth_token = authToken;
+            this.page = page;
+        }
+    }
+
     private static String execute(final Request request) throws IOException {
         final OkHttpClient client = new OkHttpClient();
 
@@ -147,18 +158,29 @@ public class API {
         final Gson gson = getGson();
         final String json = gson.toJson(req);
 
-        //Log.d(TAG, "pages = %s", json);
-
         boolean rv = false;
         try {
             final String respJson = put(PAGES_URL, json);
             final JSONObject resp = new JSONObject(respJson);
             rv = "ok".equals(resp.optString("status"));
-        } catch (IOException e) {
+        } catch (IOException | JSONException | JsonSyntaxException e) {
             Log.e(TAG, "error setting pages", e);
-        } catch (JSONException e) {
-            Log.e(TAG, "error setting pages", e);
-        } catch (JsonSyntaxException e) {
+        }
+
+        return rv;
+    }
+
+    public static boolean addPage(final String authToken, final Page page) {
+        final AddPageRequest req = new AddPageRequest(authToken, page);
+        final Gson gson = getGson();
+        final String json = gson.toJson(req);
+
+        boolean rv = false;
+        try {
+            final String respJson = post(PAGES_URL, json);
+            final JSONObject resp = new JSONObject(respJson);
+            rv = "ok".equals(resp.optString("status"));
+        } catch (IOException | JSONException | JsonSyntaxException e) {
             Log.e(TAG, "error setting pages", e);
         }
 

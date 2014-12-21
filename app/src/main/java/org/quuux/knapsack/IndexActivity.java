@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
@@ -101,13 +102,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             Log.i(TAG, "No valid Google Play Services APK found.");
         }
 
-        final Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
-        serviceIntent.setPackage("com.android.vending");
-        bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
-
-        mPurchases = Preferences.getPurchases(this);
-        onPurchasesUpdated();
-
         mAdapter = new Adapter();
         mListView.setAdapter(mAdapter);
 
@@ -118,6 +112,13 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     @Override
     protected void onResume() {
         super.onResume();
+
+        final Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
+        serviceIntent.setPackage("com.android.vending");
+        bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
+
+        mPurchases = Preferences.getPurchases(this);
+        onPurchasesUpdated();
 
         final IntentFilter filter = new IntentFilter();
         filter.addAction(ArchiveService.ACTION_ARCHIVE_UPDATE);
@@ -131,6 +132,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     @Override
     protected void onPause() {
         super.onPause();
+        unbindService(mServiceConn);
         unregisterReceiver(mReceiver);
     }
 
@@ -179,9 +181,26 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
     @Override
     public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
-        final Intent intent = new Intent(this, ViewerActivity.class);
-        intent.putExtra("page", (Page) mListView.getAdapter().getItem(position));
-        startActivity(intent);
+        final Page page = (Page) mListView.getAdapter().getItem(position);
+        if (page.status == Page.STATUS_SUCCESS) {
+            final Intent intent = new Intent(this, ViewerActivity.class);
+            intent.putExtra("page", page);
+            startActivity(intent);
+        } else {
+            final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder
+                    .setTitle(R.string.archive_page_title)
+                    .setMessage(R.string.archive_page_message)
+                    .setCancelable(true)
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.archive, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(final DialogInterface dialog, final int which) {
+                            refreshPage(page);
+                        }
+                    });
+            builder.create().show();
+        }
     }
 
     private boolean checkPlayServices() {
@@ -345,7 +364,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                         refreshPage(page);
                         break;
                     case ITEM_DELETE:
-                        deletePage(page);
+                        checkDeletePage(page);
                         break;
                 }
 
@@ -353,6 +372,21 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             }
         });
         popup.show();
+    }
+
+    private void checkDeletePage(final Page page) {
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder
+                .setTitle(R.string.delete_page_title)
+                .setMessage(R.string.delete_page_message)
+                .setCancelable(true)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(final DialogInterface dialog, final int which) {
+                        deletePage(page);
+                    }
+                }).create().show();
     }
 
     private void deletePage(final Page page) {
@@ -397,7 +431,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         i.setData(Uri.parse(page.url));
         startActivity(i);
     }
-
 
     class Adapter extends BaseAdapter {
         private final List<Page> mPages;
@@ -545,7 +578,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                     try {
                         final Pair<Sack.Status, Page> sacked = store.doLoad();
                         if (sacked.first == Sack.Status.SUCCESS) {
-                            Log.d(TAG, "adding %s", sacked.second);
+                            //Log.d(TAG, "adding %s", sacked.second);
                             rv.add(sacked.second);
                         } else {
                             Log.e(TAG, "error loading sack");
