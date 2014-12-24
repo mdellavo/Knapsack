@@ -40,6 +40,12 @@
             android:gravity="center"
             />
 
+        <ImageView
+            android:id="@+id/status"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="bottom|right"
+            />
 
     </FrameLayout>
 

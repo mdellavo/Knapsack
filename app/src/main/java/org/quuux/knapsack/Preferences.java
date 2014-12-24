@@ -13,7 +13,6 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 public class Preferences extends PreferenceActivity {

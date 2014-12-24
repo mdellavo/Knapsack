@@ -1,9 +1,5 @@
 package org.quuux.knapsack;
 
-import android.net.Uri;
-import android.os.Environment;
-
-import java.io.File;
 import java.io.Serializable;
 import java.util.Date;
 
@@ -20,9 +16,10 @@ public class Page implements Serializable {
     Date created;
     boolean read;
 
-    public Page(final String url, final String title) {
+    public Page(final String url, final String title, final String uid) {
         this.url = url;
         this.title = title;
+        this.uid = uid;
         this.created = new Date();
     }
 
@@ -34,6 +31,15 @@ public class Page implements Serializable {
     @Override
     public int hashCode() {
         return url.hashCode();
+    }
+
+    public boolean isKnown() {
+        return uid != null;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Page(url: %s / uid: %s)", url, uid);
     }
 }
 

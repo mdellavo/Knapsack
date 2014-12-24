@@ -11,6 +11,12 @@
             android:title=""
             android:summary="not set"
         />
+
+        <Preference
+            android:key="wifi-only"
+            android:title="@string/pref_wifi_only"
+            />
+
     </PreferenceCategory>
 
     <PreferenceCategory

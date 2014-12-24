@@ -335,7 +335,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     }
 
     private void onSyncComplete() {
-        mSwipeLayout.setRefreshing(false);
         loadArchives();
     }
 
@@ -476,6 +475,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             holder.more = view.findViewById(R.id.more);
             holder.created = (TextView) view.findViewById(R.id.created);
             holder.read = (TextView) view.findViewById(R.id.read);
+            holder.status = (ImageView)view.findViewById(R.id.status);
             view.setTag(holder);
             return view;
         }
@@ -490,17 +490,26 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             final Callback fallbackIcon = new Callback.EmptyCallback() {
                 @Override
                 public void onError() {
-                    Picasso.with(IndexActivity.this).load(R.drawable.ic_cloud).fit().centerInside().into(holder.favicon);
+                    holder.favicon.setVisibility(View.VISIBLE);
+                    holder.favicon.setImageResource(R.drawable.ic_cloud);
                 }
             };
 
-            final Callback loadFavicon = new Callback.EmptyCallback() {
+            final Callback loadFavicon = new Callback() {
+                @Override
+                public void onSuccess() {
+                    holder.favicon.setVisibility(View.GONE);
+                }
+
                 @Override
                 public void onError() {
-                    holder.screenshot.setImageDrawable(getDrawable(R.drawable.blank));
-                    Picasso.with(IndexActivity.this).load(favicon).fit().centerInside().into(holder.favicon, fallbackIcon);
+                    holder.screenshot.setImageResource(R.drawable.blank);
+                    Picasso.with(IndexActivity.this).load(favicon).noFade().fit().centerInside().into(holder.favicon, fallbackIcon);
                 }
             };
+
+            holder.screenshot.setImageResource(R.drawable.blank);
+            holder.favicon.setImageResource(View.VISIBLE);
 
             final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
             Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot, loadFavicon);
@@ -518,6 +527,15 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             holder.read.setText(page.read ? R.string.read : R.string.unread);
             holder.read.setVisibility(page.read ? View.GONE : View.VISIBLE);
 
+            final boolean isArchiving = ArchiveService.isArchiving(page);
+            final boolean isError = page.status == Page.STATUS_ERROR;
+            final boolean statusVisible = isArchiving || isError;
+            holder.status.setVisibility(statusVisible ? View.VISIBLE : View.GONE);
+
+            if (isArchiving)
+                holder.status.setImageResource(R.drawable.ic_syncing);
+            else if (isError)
+                holder.status.setImageResource(R.drawable.ic_error);
         }
 
         private CharSequence formatCreated(final Date created) {
@@ -554,7 +572,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     class Holder {
         int position;
         TextView url, title, created, read;
-        ImageView screenshot, favicon;
+        ImageView screenshot, favicon, status;
         View more;
     }
 
@@ -613,6 +631,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         protected void onPostExecute(final List<Page> pages) {
             super.onPostExecute(pages);
             mAdapter.update(pages);
+            mSwipeLayout.setRefreshing(false);
         }
     }
 
@@ -621,10 +640,8 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         public void onReceive(final Context context, final Intent intent) {
             final String action = intent.getAction();
 
-            if (ArchiveService.ACTION_ARCHIVE_UPDATE.equals(action))
+            if (ArchiveService.ACTION_ARCHIVE_UPDATE.equals(action) || ArchiveService.ACTION_SYNC_COMPLETE.equals(action))
                 loadArchives();
-            else if(ArchiveService.ACTION_SYNC_COMPLETE.equals(action))
-                onSyncComplete();
             else if (ACTION_PURCHASE.equals(action))
                 startPurchase();
         }

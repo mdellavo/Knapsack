@@ -53,7 +53,6 @@ public class ArchiveService extends IntentService {
     public static final String ACTION_ARCHIVE_UPDATE = "org.quuux.knapsack.action.ARCHIVE_UPDATE";
     public static final String ACTION_SYNC = "org.quuux.knapsack.action.SYNC";
     public static final String ACTION_ARCHIVE = "org.quuux.knapsack.action.ARCHIVE";
-    public static final String ACTION_UPLOAD = "org.quuux.knapsack.action.UPLOAD";
     public static final String ACTION_SYNC_COMPLETE = "org.quuux.knapsack.action.SYNC_COMPLETE";
 
     private static final String EXTRA_PAGE = "page";
@@ -68,15 +67,10 @@ public class ArchiveService extends IntentService {
         super(ArchiveService.class.getName());
     }
 
+
     public static void sync(final Context context) {
         final Intent intent = new Intent(context, ArchiveService.class);
         intent.setAction(ACTION_SYNC);
-        context.startService(intent);
-    }
-
-    public static void upload(final Context context) {
-        final Intent intent = new Intent(context, ArchiveService.class);
-        intent.setAction(ACTION_UPLOAD);
         context.startService(intent);
     }
 
@@ -118,59 +112,58 @@ public class ArchiveService extends IntentService {
         switch (action) {
             case Intent.ACTION_SEND:
             case ACTION_ARCHIVE:
-
-                final Page page;
-                if (intent.hasExtra(EXTRA_PAGE))
-                    page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
-                else
-                    page = extractPage(
-                            intent.getStringExtra(Intent.EXTRA_TEXT),
-                            intent.getStringExtra(Intent.EXTRA_SUBJECT)
-                    );
-
-                if (page != null) {
-                    mArchiving.add(page);
-
-                    final File parent = CacheManager.getArchivePath(page);
-
-                    if (!parent.exists())
-                        if (!parent.mkdirs())
-                            Log.e(TAG, "error creating directory: %s", parent);
-
-                    final File manifest = CacheManager.getManifest(page);
-                    if (!manifest.exists()) {
-                        try {
-                            commitPage(page).get();
-                        } catch (InterruptedException | ExecutionException e) {
-                            Log.e(TAG, "error committing page", e);
-                        }
-                    }
-
-                    if (isConnected()) {
-
-                        if (!Preferences.wifiOnly(this) || isWifi()) {
-                            final Page result = archivePage(page);
-                            Log.d(TAG, "result: (%s) %s", result.status, result.url);
-                        }
-
-                        final String authToken = getAuthToken();
-                        if (authToken != null)
-                            API.addPage(authToken, page);
-                    }
-
-                    mArchiving.remove(page);
-                }
-
+                doArchive(intent);
                 break;
             case ArchiveService.ACTION_SYNC:
                 sync();
                 break;
-            case ArchiveService.ACTION_UPLOAD:
-                upload();
-                break;
         }
 
         GCMBroadcastReceiver.completeWakefulIntent(intent);
+    }
+
+    private void doArchive(final Intent intent) {
+        final Page page;
+        if (intent.hasExtra(EXTRA_PAGE))
+            page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
+        else
+            page = extractPage(
+                    intent.getStringExtra(Intent.EXTRA_TEXT),
+                    intent.getStringExtra(Intent.EXTRA_SUBJECT)
+            );
+
+        if (page != null) {
+            mArchiving.add(page);
+
+            final File parent = CacheManager.getArchivePath(page);
+
+            if (!parent.exists())
+                if (!parent.mkdirs())
+                    Log.e(TAG, "error creating directory: %s", parent);
+
+            final File manifest = CacheManager.getManifest(page);
+            if (!manifest.exists()) {
+                try {
+                    commitPage(page).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    Log.e(TAG, "error committing page", e);
+                }
+            }
+
+            if (isConnected()) {
+
+                if (!Preferences.wifiOnly(this) || isWifi()) {
+                    final Page result = archivePage(page);
+                    Log.d(TAG, "result: (%s) %s", result.status, result.url);
+                }
+
+                final String authToken = getAuthToken();
+                if (authToken != null)
+                    API.addPage(authToken, page);
+            }
+
+            mArchiving.remove(page);
+        }
     }
 
     private boolean isConnected() {
@@ -183,11 +176,8 @@ public class ArchiveService extends IntentService {
         return activeNetwork != null && activeNetwork.getType() == ConnectivityManager.TYPE_WIFI;
     }
 
-    private void upload()
+    private void upload(final String authToken, final List<Page> excludingPages)
     {
-        if (!isConnected())
-            return;
-
         final List<Page> localPages = new ArrayList<>();
         final File dir = CacheManager.getArchivePath();
         if (!dir.exists())
@@ -203,7 +193,8 @@ public class ArchiveService extends IntentService {
                 Sack<Page> store = Sack.open(Page.class, manifest);
                 try {
                     final Pair<Sack.Status, Page> result = store.load().get();
-                    if (result.first == Sack.Status.SUCCESS) {
+                    if (result.first == Sack.Status.SUCCESS && !result.second.isKnown()) {
+                        Log.d(TAG, "uploading: %s", result.second);
                         localPages.add(result.second);
                     }
                 } catch (InterruptedException | ExecutionException e) {
@@ -212,14 +203,9 @@ public class ArchiveService extends IntentService {
             }
         }
 
-        if (localPages.size() == 0)
-            return;
-
-        final String authToken = getAuthToken();
-        if (authToken == null)
-            return;
-
-        API.setPages(authToken, localPages);
+        if (localPages.size() > 0) {
+            API.setPages(authToken, localPages);
+        }
     }
 
     private void dumpExtras(final Intent intent) {
@@ -239,16 +225,16 @@ public class ArchiveService extends IntentService {
         final String authToken = getAuthToken();
 
         if (authToken != null) {
-            final List<Page> pages = API.getPages(authToken);
+             final List<Page> pages = API.getPages(authToken);
 
             if (pages != null) {
                 for (final Page p : pages) {
-
-                    final Page page = getPage(p.title, p.url);
-
+                    final Page page = getPage(p.title, p.url, p.uid);
                     if (page.status == Page.STATUS_NEW)
                         archive(this, page);
                 }
+
+                upload(authToken, pages);
             } else {
                 Log.e(TAG, "error syncing pages");
             }
@@ -256,7 +242,6 @@ public class ArchiveService extends IntentService {
 
         syncComplete();
 
-        upload(this);
     }
 
     private String getAuthToken() {
@@ -286,7 +271,7 @@ public class ArchiveService extends IntentService {
         if (url == null)
             return null;
 
-        return getPage(title, url);
+        return getPage(title, url, null);
     }
 
     private Page archivePage(final Page page) {
@@ -308,7 +293,7 @@ public class ArchiveService extends IntentService {
         return result;
     }
 
-    private Page getPage(final String title, final String url) {
+    private Page getPage(final String title, final String url, final String uid) {
         final File manifest = CacheManager.getArchivePath(url, "manifest.json");
         Page page = null;
 
@@ -325,12 +310,20 @@ public class ArchiveService extends IntentService {
             }
         }
 
+        boolean dirty = !manifestExists;
         if (page == null) {
-            page = new Page(url, title);
+            page = new Page(url, title, uid);
+        } else if (uid != null) {
+            page.uid = uid;
+            dirty = true;
         }
 
-        if (!manifestExists) {
-            commitPage(page);
+        if (dirty) {
+            try {
+                commitPage(page).get();
+            } catch (InterruptedException | ExecutionException e) {
+                Log.e(TAG, "error committing page", e);
+            }
         }
 
         return page;
@@ -382,7 +375,14 @@ public class ArchiveService extends IntentService {
                     Log.e(TAG, "error saving bitmap", e);
                 }
 
+
                 return null;
+            }
+
+            @Override
+            protected void onPostExecute(final Void aVoid) {
+                super.onPostExecute(aVoid);
+                broadcastUpdate();
             }
         }.execute();
     }
@@ -553,6 +553,7 @@ public class ArchiveService extends IntentService {
         });
 
         view.onResume();
+        view.resumeTimers();
         view.loadUrl(page.url);
 
         mHandler.postDelayed(timeout, 30 * 1000);
