@@ -51,7 +51,7 @@
     <string name="archive_page_title">Archive Page</string>
     <string name="archive_page_message">This page has been added to your knapsack but not archived successfully. Would you like to archive this page now?</string>
     <string name="archive">Archive</string>
-    <string name="pref_wifi_only">Only archive while connected to a WiFi network</string>
+    <string name="pref_wifi_only">Archive via WiFi only</string>
 
     <string-array name="more">
         <item>Open</item>

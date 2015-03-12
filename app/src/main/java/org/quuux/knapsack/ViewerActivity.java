@@ -13,6 +13,7 @@ import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PersistableBundle;
 import android.support.v7.app.ActionBarActivity;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -44,6 +45,7 @@ public class ViewerActivity extends ActionBarActivity {
     private Handler mHandler;
     private ProgressBar mProgress;
     private int mSlop;
+    private float mPosition;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +76,25 @@ public class ViewerActivity extends ActionBarActivity {
         initWebView(mContentView);
 
         setupSystemUi();
-        load();
+        load((Page) getIntent().getSerializableExtra(EXTRA_PAGE));
+
+        if (savedInstanceState != null)
+            mPosition = savedInstanceState.getFloat("position", 0);
+
+    }
+
+    @Override
+    public void onSaveInstanceState(final Bundle outState) {
+        final float position = calculateProgression(mContentView);
+        Log.d(TAG, "saving position %s", position);
+        outState.putFloat("position", position);
+    }
+
+    private float calculateProgression(WebView content) {
+        float positionTopView = content.getTop();
+        float contentHeight = content.getContentHeight();
+        float currentScrollPosition = content.getScrollY();
+        return (currentScrollPosition - positionTopView) / contentHeight;
     }
 
     private boolean isNetworkAvailable() {
@@ -96,11 +116,22 @@ public class ViewerActivity extends ActionBarActivity {
             settings.setBlockNetworkImage(true);
             settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
         }
+        settings.setLoadsImagesAutomatically(true);
 
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setLoadWithOverviewMode(true);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        settings.setAllowFileAccess(true);
+
+        if  (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            settings.setAllowFileAccessFromFileURLs(true);
+            settings.setAllowUniversalAccessFromFileURLs(true);
+        }
 
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
         settings.setUseWideViewPort(true);
@@ -134,6 +165,7 @@ public class ViewerActivity extends ActionBarActivity {
 
             @Override
             public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
+
                 Log.d(TAG, "override: %s", url);
 
                 if (isNetworkAvailable()) {
@@ -161,6 +193,13 @@ public class ViewerActivity extends ActionBarActivity {
                 super.onPageFinished(view, url);
                 toggleProgress(false);
                 mHandler.postDelayed(mStartLeanbackCallback, 500);
+
+                mHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        restorePosition();
+                    }
+                }, 250);
             }
 
             @Override
@@ -172,7 +211,7 @@ public class ViewerActivity extends ActionBarActivity {
             @Override
             public void onLoadResource(final WebView view, final String url) {
                 super.onLoadResource(view, url);
-                //Log.d(TAG, "loading: %s", url);
+                Log.d(TAG, "loading: %s", url);
             }
 
             @Override
@@ -190,12 +229,33 @@ public class ViewerActivity extends ActionBarActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        mContentView.onResume();
+        mContentView.resumeTimers();
     }
 
-    private void load() {
-        final Page page = (Page) getIntent().getSerializableExtra(EXTRA_PAGE);
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mContentView.pauseTimers();
+        mContentView.onPause();
+    }
 
+    private void restorePosition() {
+        if (mPosition > 0) {
+            Log.d(TAG, "restoring position %s", mPosition);
+            float webviewsize = mContentView.getContentHeight() - mContentView.getTop();
+            float positionInWV = webviewsize * mPosition;
+            int positionY = Math.round(mContentView.getTop() + positionInWV);
+            mContentView.scrollTo(0, positionY);
+
+            mPosition = 0 ;
+        }
+    }
+
+    private void load(final Page page) {
         getSupportActionBar().setTitle(page.title);
+
+        Log.d(TAG, "loading: %s", page);
 
         final File file = CacheManager.getArchivePath(page.url, "index.mht");
         try {

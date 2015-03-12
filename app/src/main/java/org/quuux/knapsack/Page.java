@@ -41,5 +41,19 @@ public class Page implements Serializable {
     public String toString() {
         return String.format("Page(url: %s / uid: %s)", url, uid);
     }
+
+    public void update(final Page other) {
+        if (other.uid != null)
+            uid = other.uid;
+
+        if (other.title != null)
+            title = other.title;
+
+        if (other.url != null)
+            url = other.url;
+
+        if (other.created != null)
+            created = other.created;
+    }
 }
 

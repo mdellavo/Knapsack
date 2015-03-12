@@ -12,7 +12,7 @@
             android:summary="not set"
         />
 
-        <Preference
+        <CheckBoxPreference
             android:key="wifi-only"
             android:title="@string/pref_wifi_only"
             />

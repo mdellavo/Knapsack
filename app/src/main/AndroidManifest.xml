@@ -45,7 +45,6 @@
             android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -54,9 +53,10 @@
 
         <activity
             android:name=".ViewerActivity"
-            android:immersive="true"
             android:label="@string/title_activity_viewer"
-            android:theme="@style/ViewerTheme" >
+            android:theme="@style/ViewerTheme"
+            android:configChanges="orientation"
+            >
         </activity>
 
         <service

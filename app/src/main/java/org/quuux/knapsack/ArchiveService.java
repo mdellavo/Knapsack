@@ -13,6 +13,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.http.SslError;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -151,15 +152,16 @@ public class ArchiveService extends IntentService {
             }
 
             if (isConnected()) {
-
                 if (!Preferences.wifiOnly(this) || isWifi()) {
                     final Page result = archivePage(page);
                     Log.d(TAG, "result: (%s) %s", result.status, result.url);
                 }
 
-                final String authToken = getAuthToken();
-                if (authToken != null)
-                    API.addPage(authToken, page);
+                if (page.uid == null) {
+                    final String authToken = getAuthToken();
+                    if (authToken != null)
+                        API.addPage(authToken, page);
+                }
             }
 
             mArchiving.remove(page);
@@ -229,7 +231,7 @@ public class ArchiveService extends IntentService {
 
             if (pages != null) {
                 for (final Page p : pages) {
-                    final Page page = getPage(p.title, p.url, p.uid);
+                    final Page page = getPage(p);
                     if (page.status == Page.STATUS_NEW)
                         archive(this, page);
                 }
@@ -271,7 +273,7 @@ public class ArchiveService extends IntentService {
         if (url == null)
             return null;
 
-        return getPage(title, url, null);
+        return getPage(new Page(url, title, null));
     }
 
     private Page archivePage(final Page page) {
@@ -293,9 +295,8 @@ public class ArchiveService extends IntentService {
         return result;
     }
 
-    private Page getPage(final String title, final String url, final String uid) {
-        final File manifest = CacheManager.getArchivePath(url, "manifest.json");
-        Page page = null;
+    private Page getPage(Page page) {
+        final File manifest = CacheManager.getManifest(page);
 
         final boolean manifestExists = manifest.exists();
 
@@ -303,27 +304,20 @@ public class ArchiveService extends IntentService {
             Sack<Page> store = Sack.open(Page.class, manifest);
             try {
                 final Pair<Sack.Status, Page> result = store.load().get();
-                if (result.first == Sack.Status.SUCCESS)
-                    page = result.second;
+                if (result.first == Sack.Status.SUCCESS) {
+                    final Page existing = result.second;
+                    existing.update(page);
+                    page = existing;
+                }
             } catch (Exception e) {
                 Log.e(TAG, "error loading sacked page", e);
             }
         }
 
-        boolean dirty = !manifestExists;
-        if (page == null) {
-            page = new Page(url, title, uid);
-        } else if (uid != null) {
-            page.uid = uid;
-            dirty = true;
-        }
-
-        if (dirty) {
-            try {
-                commitPage(page).get();
-            } catch (InterruptedException | ExecutionException e) {
-                Log.e(TAG, "error committing page", e);
-            }
+        try {
+            commitPage(page).get();
+        } catch (InterruptedException | ExecutionException e) {
+            Log.e(TAG, "error committing page", e);
         }
 
         return page;
@@ -404,19 +398,20 @@ public class ArchiveService extends IntentService {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
 
-        // FIXME set to in memory only?
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        settings.setLoadsImagesAutomatically(true);
+        settings.setAllowFileAccess(true);
+
+        if  (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            settings.setAllowFileAccessFromFileURLs(true);
+            settings.setAllowUniversalAccessFromFileURLs(true);
+        }
+
         CookieManager.getInstance().setAcceptCookie(true);
 
-        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setAppCacheEnabled(false);
-        view.clearHistory();
-        view.clearCache(true);
-
-        view.clearFormData();
-        settings.setSavePassword(false);
-        settings.setSaveFormData(false);
-
-        view.getSettings().setJavaScriptEnabled(true);
+        settings.setJavaScriptEnabled(true);
 
         return view;
     }
@@ -424,9 +419,9 @@ public class ArchiveService extends IntentService {
     private void archive(final Page page) {
         Log.d(TAG, "archiving: %s", page.url);
 
-        final Intent contentIntent = new Intent(this, ViewerActivity.class);
-        contentIntent.putExtra(ViewerActivity.EXTRA_PAGE, page);
-        final PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, contentIntent, 0);
+        final Intent contentIntent = new Intent(this, IndexActivity.class);
+        contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final PendingIntent pendingIntent = PendingIntent.getActivity(this, page.hashCode(), contentIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         final NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder
