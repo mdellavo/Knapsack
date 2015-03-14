@@ -123,7 +123,22 @@ public class ArchiveService extends IntentService {
         GCMBroadcastReceiver.completeWakefulIntent(intent);
     }
 
-    private void doArchive(final Intent intent) {
+    private Page getPage(final Page page) {
+        final PageCache cache = PageCache.getInstance();
+
+        Page rv = cache.getPage(page);
+
+        if (rv == null) {
+            rv = cache.loadPage(page);
+            if (rv == null) {
+                rv = cache.commitPage(page);
+            }
+        }
+
+        return rv;
+    }
+
+    private Page getPageFromIntent(final Intent intent) {
         final Page page;
         if (intent.hasExtra(EXTRA_PAGE))
             page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
@@ -133,23 +148,16 @@ public class ArchiveService extends IntentService {
                     intent.getStringExtra(Intent.EXTRA_SUBJECT)
             );
 
+        if (page == null)
+            return null;
+
+        return getPage(page);
+    }
+
+    private void doArchive(final Intent intent) {
+        final Page page = getPageFromIntent(intent);
         if (page != null) {
             mArchiving.add(page);
-
-            final File parent = CacheManager.getArchivePath(page);
-
-            if (!parent.exists())
-                if (!parent.mkdirs())
-                    Log.e(TAG, "error creating directory: %s", parent);
-
-            final File manifest = CacheManager.getManifest(page);
-            if (!manifest.exists()) {
-                try {
-                    commitPage(page).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    Log.e(TAG, "error committing page", e);
-                }
-            }
 
             if (isConnected()) {
                 if (!Preferences.wifiOnly(this) || isWifi()) {
@@ -180,29 +188,13 @@ public class ArchiveService extends IntentService {
 
     private void upload(final String authToken, final List<Page> excludingPages)
     {
+        final PageCache cache =  PageCache.getInstance();
         final List<Page> localPages = new ArrayList<>();
-        final File dir = CacheManager.getArchivePath();
-        if (!dir.exists())
-            return;
 
-        final File[] files =  dir.listFiles();
-        if (files == null)
-            return;
-
-        for (final File f : files) {
-            if (f.isDirectory()) {
-                final File manifest = new File(f, "manifest.json");
-                Sack<Page> store = Sack.open(Page.class, manifest);
-                try {
-                    final Pair<Sack.Status, Page> result = store.load().get();
-                    if (result.first == Sack.Status.SUCCESS && !result.second.isKnown()) {
-                        Log.d(TAG, "uploading: %s", result.second);
-                        localPages.add(result.second);
-                    }
-                } catch (InterruptedException | ExecutionException e) {
-                    Log.e(TAG, "error loading sack", e);
-                }
-            }
+        cache.scanPages();
+        for (Page p : cache.getPages()) {
+            if (!p.isKnown())
+                localPages.add(p);
         }
 
         if (localPages.size() > 0) {
@@ -273,7 +265,7 @@ public class ArchiveService extends IntentService {
         if (url == null)
             return null;
 
-        return getPage(new Page(url, title, null));
+        return new Page(url, title, null);
     }
 
     private Page archivePage(final Page page) {
@@ -288,6 +280,7 @@ public class ArchiveService extends IntentService {
         Page result = null;
         try {
             result = mQueue.take();
+            PageCache.getInstance().commitPage(page);
         } catch (InterruptedException e) {
             Log.e(TAG, "error getting result", e);
         }
@@ -295,63 +288,18 @@ public class ArchiveService extends IntentService {
         return result;
     }
 
-    private Page getPage(Page page) {
-        final File manifest = CacheManager.getManifest(page);
-
-        final boolean manifestExists = manifest.exists();
-
-        if (manifestExists) {
-            Sack<Page> store = Sack.open(Page.class, manifest);
-            try {
-                final Pair<Sack.Status, Page> result = store.load().get();
-                if (result.first == Sack.Status.SUCCESS) {
-                    final Page existing = result.second;
-                    existing.update(page);
-                    page = existing;
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "error loading sacked page", e);
-            }
-        }
-
-        try {
-            commitPage(page).get();
-        } catch (InterruptedException | ExecutionException e) {
-            Log.e(TAG, "error committing page", e);
-        }
-
-        return page;
-    }
-
-    private AsyncTask<Page, Void, Pair<Sack.Status, Page>> commitPage(final Page page, final Sack.Listener<Page> callback) {
-
-        final File manifest = CacheManager.getArchivePath(page.url, "manifest.json");
-        final Sack<Page> store = Sack.open(Page.class, manifest);
-        return store.commit(page, new Sack.Listener<Page>() {
-            @Override
-            public void onResult(final Sack.Status status, final Page obj) {
-                broadcastUpdate();
-                if (callback != null)
-                    callback.onResult(status, obj);
-            }
-        });
-    }
-
-    private AsyncTask<Page, Void, Pair<Sack.Status, Page>> commitPage(final Page page) {
-        return commitPage(page, null);
-    }
-
-    private void broadcastUpdate() {
+    private void broadcastUpdate(final Page page) {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
                 final Intent intent = new Intent(ACTION_ARCHIVE_UPDATE);
+                intent.putExtra(EXTRA_PAGE, page);
                 sendBroadcast(intent);
             }
         });
     }
 
-    private AsyncTask<Void, Void, Void> saveBitmap(final Bitmap bitmap, final File path, final int width, final int height) {
+    private AsyncTask<Void, Void, Void> saveBitmap(final Page page, final Bitmap bitmap, final File path, final int width, final int height) {
         return new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(final Void[] params) {
@@ -376,7 +324,7 @@ public class ArchiveService extends IntentService {
             @Override
             protected void onPostExecute(final Void aVoid) {
                 super.onPostExecute(aVoid);
-                broadcastUpdate();
+                broadcastUpdate(page);
             }
         }.execute();
     }
@@ -447,8 +395,7 @@ public class ArchiveService extends IntentService {
             public void onReceivedIcon(final WebView view, final Bitmap icon) {
                 super.onReceivedIcon(view, icon);
                 if (icon != null)
-                    saveBitmap(icon, CacheManager.getArchivePath(page.url, "favicon.png"), 0, 0);
-                broadcastUpdate();
+                    saveBitmap(page, icon, CacheManager.getArchivePath(page.url, "favicon.png"), 0, 0);
             }
 
             @Override
@@ -509,7 +456,7 @@ public class ArchiveService extends IntentService {
                 Log.d(TAG, "page started:%s: %s", loadCount, url);
 
                 if (favicon != null)
-                    saveBitmap(favicon, CacheManager.getArchivePath(url, "favicon.png"), 0, 0);
+                    saveBitmap(page, favicon, CacheManager.getArchivePath(url, "favicon.png"), 0, 0);
             }
 
             @Override
@@ -556,20 +503,17 @@ public class ArchiveService extends IntentService {
 
     private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page) {
 
+        if (!savePage(page, view)) {
+            page.status = Page.STATUS_ERROR;
+        }
+        destoryWebView(view);
+
         if (page.status == Page.STATUS_SUCCESS)
             notifySuccess(builder, page);
         else if (page.status == Page.STATUS_ERROR)
             notifyError(builder, page);
 
-        savePage(page, view);
-        destoryWebView(view);
-
-        commitPage(page, new Sack.Listener<Page>() {
-            @Override
-            public void onResult(final Sack.Status status, final Page obj) {
-                mQueue.offer(obj);
-            }
-        });
+        mQueue.offer(page);
     }
 
     private void updateNotification(final Notification notification, final Page page) {
@@ -598,18 +542,27 @@ public class ArchiveService extends IntentService {
         view.destroy();
     }
 
-    private void savePage(final Page page, final WebView view) {
+    private boolean savePage(final Page page, final WebView view) {
         Log.d(TAG, "saving!");
 
         final int width = view.getWidth();
         final int height = view.getHeight();
 
-        view.saveWebArchive(CacheManager.getArchivePath(page.url, "index.mht").getPath());
-        final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        final Canvas canvas = new Canvas(bitmap);
-        view.draw(canvas);
+        boolean rv;
+        try {
+            view.saveWebArchive(CacheManager.getArchivePath(page.url, "index.mht").getPath());
+            final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            final Canvas canvas = new Canvas(bitmap);
+            view.draw(canvas);
 
-        saveBitmap(bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width/4, height/4);
+            saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4);
+            rv = true;
+        } catch(Exception e) {
+            Log.e(TAG, "Error saving page", e);
+            rv = false;
+        }
+
+        return rv;
     }
 
     @Override

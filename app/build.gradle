@@ -52,6 +52,7 @@ dependencies {
     compile 'com.squareup.okhttp:okhttp:2.0.0'
     compile 'com.squareup.okhttp:okhttp-urlconnection:2.0.0'
     compile 'com.melnykov:floatingactionbutton:1.0.7'
+    compile 'com.getbase:floatingactionbutton:1.8.0'
 }
 
 task askForPasswords << {

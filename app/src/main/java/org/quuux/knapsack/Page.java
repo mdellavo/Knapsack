@@ -15,6 +15,7 @@ public class Page implements Serializable {
     String title;
     Date created;
     boolean read;
+    float progress = 0;
 
     public Page(final String url, final String title, final String uid) {
         this.url = url;
@@ -42,17 +43,21 @@ public class Page implements Serializable {
         return String.format("Page(url: %s / uid: %s)", url, uid);
     }
 
+    private boolean shouldUpdate(final Object self, final Object other) {
+        return self == null && other != null;
+    }
+
     public void update(final Page other) {
-        if (other.uid != null)
+        if (shouldUpdate(this.uid, other.uid))
             uid = other.uid;
 
-        if (other.title != null)
+        if (shouldUpdate(this.title, other.title))
             title = other.title;
 
-        if (other.url != null)
+        if (shouldUpdate(this.url, other.url))
             url = other.url;
 
-        if (other.created != null)
+        if (shouldUpdate(this.created, other.created))
             created = other.created;
     }
 }

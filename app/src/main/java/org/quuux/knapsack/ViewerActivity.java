@@ -10,13 +10,11 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.http.SslError;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.PersistableBundle;
 import android.support.v7.app.ActionBarActivity;
-import android.view.GestureDetector;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
@@ -29,6 +27,8 @@ import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.getbase.floatingactionbutton.FloatingActionsMenu;
+
 import org.quuux.sack.Sack;
 
 import java.io.File;
@@ -40,47 +40,55 @@ public class ViewerActivity extends ActionBarActivity {
 
     public static final String EXTRA_PAGE = "page";
 
+    private final Handler mHandler = new Handler();
+
     private ObservableWebView mContentView;
-    private boolean mLeanback;
-    private Handler mHandler;
+    private FloatingActionsMenu mFab;
     private ProgressBar mProgress;
+
+    private boolean mLeanback;
+    private float mSavedPosition;
     private int mSlop;
-    private float mPosition;
+
+    private Page mPage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mHandler = new Handler();
+        mPage = PageCache.getInstance().getPage((Page) getIntent().getSerializableExtra(EXTRA_PAGE));
 
         mSlop = ViewConfiguration.get(this).getScaledTouchSlop();
-
-        final GestureDetector gestureDetector = new GestureDetector(this, mGestureListener);
 
         getSupportActionBar().setBackgroundDrawable(getResources().getDrawable(R.drawable.actionbar));
         setContentView(R.layout.activity_viewer);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        //final View controlsView = findViewById(R.id.fullscreen_content_controls);
-
         mProgress = (ProgressBar)findViewById(R.id.progress);
-
         mContentView = (ObservableWebView) findViewById(R.id.fullscreen_content);
         mContentView.setOnScrollChangedListener(mScrollListener);
-        mContentView.setOnTouchListener(new View.OnTouchListener() {
+        mFab = (FloatingActionsMenu)findViewById(R.id.fab);
+        mFab.setOnFloatingActionsMenuUpdateListener(new FloatingActionsMenu.OnFloatingActionsMenuUpdateListener() {
             @Override
-            public boolean onTouch(final View v, final MotionEvent event) {
-                return v.onTouchEvent(event) || gestureDetector.onTouchEvent(event);
+            public void onMenuExpanded() {
+                endLeanback();
+            }
+
+            @Override
+            public void onMenuCollapsed() {
+                startLeanback();
             }
         });
+
         initWebView(mContentView);
 
         setupSystemUi();
-        load((Page) getIntent().getSerializableExtra(EXTRA_PAGE));
 
         if (savedInstanceState != null)
-            mPosition = savedInstanceState.getFloat("position", 0);
+            mSavedPosition = savedInstanceState.getFloat("position", 0);
 
+        mSavedPosition = Math.max(mSavedPosition, mPage.progress);
+        load();
     }
 
     @Override
@@ -89,6 +97,8 @@ public class ViewerActivity extends ActionBarActivity {
         Log.d(TAG, "saving position %s", position);
         outState.putFloat("position", position);
     }
+
+
 
     private float calculateProgression(WebView content) {
         float positionTopView = content.getTop();
@@ -238,38 +248,41 @@ public class ViewerActivity extends ActionBarActivity {
         super.onPause();
         mContentView.pauseTimers();
         mContentView.onPause();
+
+        mPage.progress = calculateProgression(mContentView);
+
+        Log.d(TAG, "saving position @ %s", mPage.progress);
+
+        PageCache.getInstance().commitPage(mPage);
     }
 
     private void restorePosition() {
-        if (mPosition > 0) {
-            Log.d(TAG, "restoring position %s", mPosition);
+        final float position = mSavedPosition;
+        if (position > 0) {
+            Log.d(TAG, "restoring position %s", mSavedPosition);
             float webviewsize = mContentView.getContentHeight() - mContentView.getTop();
-            float positionInWV = webviewsize * mPosition;
+            float positionInWV = webviewsize * mSavedPosition;
             int positionY = Math.round(mContentView.getTop() + positionInWV);
             mContentView.scrollTo(0, positionY);
-
-            mPosition = 0 ;
+            mSavedPosition = 0 ;
         }
     }
 
-    private void load(final Page page) {
-        getSupportActionBar().setTitle(page.title);
+    private void load() {
+        getSupportActionBar().setTitle(mPage.title);
 
-        Log.d(TAG, "loading: %s", page);
+        Log.d(TAG, "loading: %s", mPage);
 
-        final File file = CacheManager.getArchivePath(page.url, "index.mht");
+        final File file = CacheManager.getArchivePath(mPage.url, "index.mht");
         try {
             mContentView.loadUrl(file.toURI().toURL().toString());
         } catch (MalformedURLException e) {
             Log.e(TAG, "error loading page", e);
         }
 
-        if (!page.read) {
-            page.read = true;
-
-            final File manifest = CacheManager.getArchivePath(page.url, "manifest.json");
-            Sack<Page> sack = Sack.open(Page.class, manifest);
-            sack.commit(page);
+        if (!mPage.read) {
+            mPage.read = true;
+            PageCache.getInstance().commitAsync(mPage);
         }
     }
 
@@ -394,20 +407,10 @@ public class ViewerActivity extends ActionBarActivity {
                 scrolled += deltaT;
 
             if (scrolled > mSlop && !mLeanback) {
-                startLeanback();
                 scrolled = 0;
             } else if (scrolled < -mSlop && mLeanback) {
-                endLeanback();
                 scrolled = 0;
             }
-        }
-    };
-
-    private android.view.GestureDetector.OnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener(){
-        @Override
-        public boolean onSingleTapConfirmed(final MotionEvent e) {
-            toggleLeanback();
-            return true;
         }
     };
 

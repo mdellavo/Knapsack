@@ -396,7 +396,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             @Override
             protected Void doInBackground(final Void... voids) {
 
-                CacheManager.delete(page);
+                PageCache.getInstance().deletePage(page);
 
                 final String account = Preferences.getSyncAccount(IndexActivity.this);
 
@@ -557,9 +557,9 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
             return rv;
         }
 
-        public void update(final List<Page> pages) {
+        public void update() {
             mPages.clear();
-            mPages.addAll(pages);
+            mPages.addAll(PageCache.getInstance().getPagesSorted());
             notifyDataSetChanged();
         }
 
@@ -576,61 +576,18 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         View more;
     }
 
-    class ScanArchivesTask extends AsyncTask<Void, Void, List<Page>> {
+    class ScanArchivesTask extends AsyncTask<Void, Void, Void> {
 
         @Override
-        protected List<Page> doInBackground(final Void... params) {
-
-            final List<Page> rv = new ArrayList<Page>();
-
-            final File[] files = CacheManager.getArchivePath().listFiles();
-            if (files == null)
-                return rv;
-
-            for (final File file : files) {
-
-                final File manifest = new File(file, "manifest.json");
-                final File index = new File(file, "index.mht");
-                if (file.isDirectory() && manifest.isFile()) {
-                    final Sack<Page> store = Sack.open(Page.class, manifest);
-                    try {
-                        final Pair<Sack.Status, Page> sacked = store.doLoad();
-                        if (sacked.first == Sack.Status.SUCCESS) {
-                            //Log.d(TAG, "adding %s", sacked.second);
-                            rv.add(sacked.second);
-                        } else {
-                            Log.e(TAG, "error loading sack");
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "error loading sack", e);
-                    }
-                }
-            }
-
-            Collections.sort(rv, new Comparator<Page>() {
-                @Override
-                public int compare(final Page lhs, final Page rhs) {
-
-                    if (lhs.created == null && rhs.created == null)
-                        return 0;
-
-                    if (lhs.created == null)
-                        return 1;
-
-                    if (rhs.created == null)
-                        return -1;
-
-                    return -lhs.created.compareTo(rhs.created);
-                }
-            });
-
-            return rv;
+        protected Void doInBackground(final Void... params) {
+            PageCache.getInstance().scanPages();
+            return null;
         }
 
         @Override
-        protected void onPostExecute(final List<Page> pages) {
-            super.onPostExecute(pages);
-            mAdapter.update(pages);
+        protected void onPostExecute(final Void result) {
+            super.onPostExecute(result);
+            mAdapter.update();
             mSwipeLayout.setRefreshing(false);
         }
     }

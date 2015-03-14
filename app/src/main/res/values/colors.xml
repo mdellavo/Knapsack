@@ -8,4 +8,7 @@
     <color name="accent">#ff4081</color>
     <color name="accent_pressed">#f50057</color>
     <color name="blank_page">#eee</color>
+    <color name="white">#fff</color>
+    <color name="white_pressed">#ccc</color>
+    <color name="half_black">#666</color>
 </resources>

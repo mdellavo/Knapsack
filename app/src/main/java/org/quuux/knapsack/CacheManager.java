@@ -6,6 +6,9 @@ import android.os.Environment;
 import java.io.File;
 
 public class CacheManager {
+
+    private static final String MANIFEST = "manifest.json";
+
     public static File getArchivePath() {
         final File base = Environment.getExternalStorageDirectory();
         return new File(base, "WebArchive");
@@ -38,7 +41,11 @@ public class CacheManager {
     }
 
     public static File getManifest(final Page page) {
-        return getArchivePath(page, "manifest.json");
+        return getArchivePath(page.url, MANIFEST);
+    }
+
+    public static File getManifest(final String url) {
+        return getArchivePath(url, MANIFEST);
     }
 
     public static void delete(final Page page) {
