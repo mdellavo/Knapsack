@@ -1,7 +1,6 @@
 package org.quuux.knapsack;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -10,7 +9,6 @@ import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.DrawableContainer;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -20,7 +18,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
@@ -42,7 +39,7 @@ public class ViewerActivity extends ActionBarActivity {
 
     private final Handler mHandler = new Handler();
 
-    private ObservableWebView mContentView;
+    private ObservableWebview mContentView;
     private ProgressBar mProgress;
     private ProgressDrawable mProgressDrawable;
 
@@ -59,7 +56,7 @@ public class ViewerActivity extends ActionBarActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mProgress = (ProgressBar)findViewById(R.id.progress);
-        mContentView = (ObservableWebView) findViewById(R.id.fullscreen_content);
+        mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
         mContentView.setOnScrollChangedListener(mScrollListener);
 
         initWebView(mContentView);
@@ -263,7 +260,7 @@ public class ViewerActivity extends ActionBarActivity {
         }
     }
 
-    private ObservableWebView.OnScrollChangedListener mScrollListener = new ObservableWebView.OnScrollChangedListener() {
+    private ObservableWebview.OnScrollChangedListener mScrollListener = new ObservableWebview.OnScrollChangedListener() {
 
         int scrolled = 0;
 

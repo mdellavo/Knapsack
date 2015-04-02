@@ -5,19 +5,19 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.webkit.WebView;
 
-public class ObservableWebView extends WebView {
+public class ObservableWebview extends WebView {
     private OnScrollChangedListener mOnScrollChangedListener;
     private OnTouchEventListener mOnTouchEventListener;
 
-    public ObservableWebView(final Context context) {
+    public ObservableWebview(final Context context) {
         super(context);
     }
 
-    public ObservableWebView(final Context context, final AttributeSet attrs) {
+    public ObservableWebview(final Context context, final AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public ObservableWebView(final Context context, final AttributeSet attrs, final int defStyle) {
+    public ObservableWebview(final Context context, final AttributeSet attrs, final int defStyle) {
         super(context, attrs, defStyle);
     }
 
