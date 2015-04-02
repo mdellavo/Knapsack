@@ -8,7 +8,6 @@ import android.os.Bundle;
 
 import com.google.android.gms.auth.GoogleAuthException;
 import com.google.android.gms.auth.GoogleAuthUtil;
-import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
@@ -227,11 +226,7 @@ public class API {
         try {
             final Bundle extras = new Bundle();
             token = GoogleAuthUtil.getTokenWithNotification(context, account, scope, extras, callback);
-        } catch (UserRecoverableAuthException e) {
-            Log.e(TAG, "error getting token", e);
-        } catch (GoogleAuthException e) {
-            Log.e(TAG, "error getting token", e);
-        } catch (IOException e) {
+        } catch (GoogleAuthException | IOException e) {
             Log.e(TAG, "error getting token", e);
         }
 

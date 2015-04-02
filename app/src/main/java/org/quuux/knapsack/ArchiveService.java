@@ -19,7 +19,6 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
-import android.util.Pair;
 import android.util.Patterns;
 import android.view.Display;
 import android.view.View;
@@ -28,15 +27,19 @@ import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import org.quuux.sack.Sack;
-
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.StringBufferInputStream;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,7 +47,6 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 
 public class ArchiveService extends IntentService {
@@ -59,6 +61,7 @@ public class ArchiveService extends IntentService {
     private static final String EXTRA_PAGE = "page";
 
     private static final Set<Page> mArchiving = Collections.newSetFromMap(new ConcurrentHashMap<Page, Boolean>());
+    private static final int NOTIFICATION = 10;
 
     private final Handler mHandler = new Handler();
     private final BlockingQueue<Page> mQueue = new ArrayBlockingQueue<>(1);
@@ -108,6 +111,10 @@ public class ArchiveService extends IntentService {
 
         if (intent.getExtras() != null)
             dumpExtras(intent);
+
+        // FIXME move to application
+//        AdBlocker adblocker = AdBlocker.getInstance();
+//        adblocker.load(this);
 
         final String action = intent.getAction();
         switch (action) {
@@ -340,6 +347,7 @@ public class ArchiveService extends IntentService {
         final WebView view = new WebView(this);
         view.measure(View.MeasureSpec.getSize(width), View.MeasureSpec.getSize(height));
         view.layout(0, 0, width, height);
+        view.setBackgroundColor(getResources().getColor(android.R.color.white));
 
         final WebSettings settings = view.getSettings();
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
@@ -383,6 +391,7 @@ public class ArchiveService extends IntentService {
 
         final WebView view = newWebView();
         view.setWebChromeClient(new WebChromeClient() {
+
             @Override
             public void onProgressChanged(final WebView view, final int newProgress) {
                 super.onProgressChanged(view, newProgress);
@@ -482,7 +491,28 @@ public class ArchiveService extends IntentService {
             @Override
             public void onLoadResource(final WebView view, final String url) {
                 super.onLoadResource(view, url);
-                //Log.d(TAG, "loading: %s", url);
+                Log.d(TAG, "loading: %s", url);
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(final WebView view, final WebResourceRequest request) {
+                return shouldInterceptRequest(view, request.getUrl().toString());
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(final WebView view, final String url) {
+
+                Log.d(TAG, "intercept? %s", url);
+
+                final AdBlocker adBlocker = AdBlocker.getInstance();
+
+                if (adBlocker.match(url)) {
+                    Log.d(TAG, "blocking: %s", url);
+                    final InputStream in = new ByteArrayInputStream("".getBytes());
+                    return new WebResourceResponse("text/plain", "utf-8", in);
+                }
+
+                return super.shouldInterceptRequest(view, url);
             }
 
             @Override
@@ -498,7 +528,7 @@ public class ArchiveService extends IntentService {
         view.resumeTimers();
         view.loadUrl(page.url);
 
-        mHandler.postDelayed(timeout, 30 * 1000);
+        mHandler.postDelayed(timeout, 600 * 1000);
     }
 
     private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page) {
@@ -518,7 +548,7 @@ public class ArchiveService extends IntentService {
 
     private void updateNotification(final Notification notification, final Page page) {
         final NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        notificationManager.notify(page.url.hashCode(), notification);
+        notificationManager.notify(NOTIFICATION, notification);
     }
 
     private void notifySuccess(final NotificationCompat.Builder builder, final Page page) {

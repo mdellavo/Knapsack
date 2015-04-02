@@ -6,11 +6,15 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.DrawableContainer;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.http.SslError;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -27,10 +31,6 @@ import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
-import com.getbase.floatingactionbutton.FloatingActionsMenu;
-
-import org.quuux.sack.Sack;
-
 import java.io.File;
 import java.net.MalformedURLException;
 
@@ -43,13 +43,10 @@ public class ViewerActivity extends ActionBarActivity {
     private final Handler mHandler = new Handler();
 
     private ObservableWebView mContentView;
-    private FloatingActionsMenu mFab;
     private ProgressBar mProgress;
+    private ProgressDrawable mProgressDrawable;
 
-    private boolean mLeanback;
     private float mSavedPosition;
-    private int mSlop;
-
     private Page mPage;
 
     @Override
@@ -58,31 +55,18 @@ public class ViewerActivity extends ActionBarActivity {
 
         mPage = PageCache.getInstance().getPage((Page) getIntent().getSerializableExtra(EXTRA_PAGE));
 
-        mSlop = ViewConfiguration.get(this).getScaledTouchSlop();
-
-        getSupportActionBar().setBackgroundDrawable(getResources().getDrawable(R.drawable.actionbar));
         setContentView(R.layout.activity_viewer);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mProgress = (ProgressBar)findViewById(R.id.progress);
         mContentView = (ObservableWebView) findViewById(R.id.fullscreen_content);
         mContentView.setOnScrollChangedListener(mScrollListener);
-        mFab = (FloatingActionsMenu)findViewById(R.id.fab);
-        mFab.setOnFloatingActionsMenuUpdateListener(new FloatingActionsMenu.OnFloatingActionsMenuUpdateListener() {
-            @Override
-            public void onMenuExpanded() {
-                endLeanback();
-            }
-
-            @Override
-            public void onMenuCollapsed() {
-                startLeanback();
-            }
-        });
 
         initWebView(mContentView);
 
-        setupSystemUi();
+        mProgress.setMax(100);
+
+        mProgressDrawable = new ProgressDrawable();
 
         if (savedInstanceState != null)
             mSavedPosition = savedInstanceState.getFloat("position", 0);
@@ -98,8 +82,6 @@ public class ViewerActivity extends ActionBarActivity {
         outState.putFloat("position", position);
     }
 
-
-
     private float calculateProgression(WebView content) {
         float positionTopView = content.getTop();
         float contentHeight = content.getContentHeight();
@@ -113,7 +95,6 @@ public class ViewerActivity extends ActionBarActivity {
         final NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
-
 
     @SuppressLint("SetJavaScriptEnabled")
     private void initWebView(final WebView view) {
@@ -151,6 +132,7 @@ public class ViewerActivity extends ActionBarActivity {
             public void onProgressChanged(final WebView view, final int newProgress) {
                 super.onProgressChanged(view, newProgress);
                 Log.d(TAG, "progress: %s", newProgress);
+                mProgress.setProgress(newProgress);
             }
 
             @Override
@@ -202,7 +184,6 @@ public class ViewerActivity extends ActionBarActivity {
             public void onPageFinished(final WebView view, final String url) {
                 super.onPageFinished(view, url);
                 toggleProgress(false);
-                mHandler.postDelayed(mStartLeanbackCallback, 500);
 
                 mHandler.postDelayed(new Runnable() {
                     @Override
@@ -215,7 +196,7 @@ public class ViewerActivity extends ActionBarActivity {
             @Override
             public void onPageStarted(final WebView view, final String url, final Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
-                //toggleProgress(true);
+                toggleProgress(true);
             }
 
             @Override
@@ -250,9 +231,7 @@ public class ViewerActivity extends ActionBarActivity {
         mContentView.onPause();
 
         mPage.progress = calculateProgression(mContentView);
-
         Log.d(TAG, "saving position @ %s", mPage.progress);
-
         PageCache.getInstance().commitPage(mPage);
     }
 
@@ -269,8 +248,6 @@ public class ViewerActivity extends ActionBarActivity {
     }
 
     private void load() {
-        getSupportActionBar().setTitle(mPage.title);
-
         Log.d(TAG, "loading: %s", mPage);
 
         final File file = CacheManager.getArchivePath(mPage.url, "index.mht");
@@ -286,132 +263,59 @@ public class ViewerActivity extends ActionBarActivity {
         }
     }
 
-
-    @TargetApi(11)
-    private void setupSystemUi() {
-        final View v = getWindow().getDecorView();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            v.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
-                @Override
-                public void onSystemUiVisibilityChange(final int visibility) {
-                    final boolean isAwake = (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0;
-
-                    Log.d(TAG, "system ui visibility change: isAwake=%s", isAwake);
-
-                    if (isAwake) {
-                        getSupportActionBar().show();
-                    } else {
-                        getSupportActionBar().hide();
-                    }
-
-                }
-            });
-        }
-    }
-
-    @TargetApi(11)
-    private void hideSystemUi() {
-        Log.d(TAG, "hide system ui");
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION // hide nav bar
-                            | View.SYSTEM_UI_FLAG_FULLSCREEN // hide status bar
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            );
-        }
-    }
-
-    @TargetApi(11)
-    private void showSystemUi() {
-        Log.d(TAG, "show system ui");
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            );
-        }
-    }
-
-    @TargetApi(11)
-    private void restoreSystemUi() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            getWindow().getDecorView().setSystemUiVisibility(0);
-        }
-    }
-
-    public void startLeanback() {
-        Log.d(TAG, "start leanback");
-        mLeanback = true;
-        mHandler.removeCallbacks(mEndLeanbackCallback);
-        getSupportActionBar().hide();
-        hideSystemUi();
-    }
-
-    public void endLeanback() {
-        Log.d(TAG, "end leanback");
-        mLeanback = false;
-        mHandler.removeCallbacks(mStartLeanbackCallback);
-        getSupportActionBar().show();
-        showSystemUi();
-    }
-
-    public void exitLeanback() {
-        Log.d(TAG, "exiting leanback");
-        endLeanback();
-        restoreSystemUi();
-    }
-
-    public boolean isLeanback() {
-        return mLeanback;
-    }
-
-    public void toggleLeanback() {
-        if (mLeanback)
-            endLeanback();
-        else
-            startLeanback();
-    }
-
-    private final Runnable mStartLeanbackCallback = new Runnable() {
-        @Override
-        public void run() {
-            Log.d(TAG, "resuming leanback...");
-            startLeanback();
-        }
-    };
-
-    private final Runnable mEndLeanbackCallback = new Runnable() {
-        @Override
-        public void run() {
-            Log.d(TAG, "resuming leanback...");
-            endLeanback();
-        }
-    };
-
     private ObservableWebView.OnScrollChangedListener mScrollListener = new ObservableWebView.OnScrollChangedListener() {
 
         int scrolled = 0;
 
         @Override
         public void onScroll(final int l, final int t, final int oldl, final int oldt) {
-            final int deltaT = t - oldt;
-
-            if ((deltaT > 0 && !mLeanback) || (deltaT < 0 && mLeanback))
-                scrolled += deltaT;
-
-            if (scrolled > mSlop && !mLeanback) {
-                scrolled = 0;
-            } else if (scrolled < -mSlop && mLeanback) {
-                scrolled = 0;
-            }
+            mProgressDrawable.setProgress(calculateProgression(mContentView));
         }
     };
+
+    class ProgressDrawable extends Drawable {
+
+        final Paint mPaint;
+        float progress;
+
+        ProgressDrawable() {
+            mPaint = new Paint();
+            mPaint.setAntiAlias(true);
+            mPaint.setAlpha(255);
+            mPaint.setColor(getResources().getColor(android.R.color.black));
+            mPaint.setTextAlign(Paint.Align.CENTER);
+            mPaint.setTextSize(80);
+            mPaint.setSubpixelText(true);
+        }
+
+        public void setProgress(final float progress) {
+            this.progress = progress;
+            Log.d(TAG, "progress=%s", progress);
+            invalidateSelf();
+        }
+
+        @Override
+        public void draw(final Canvas canvas) {
+            final float cx = canvas.getWidth() / 2f;
+            final float cy = canvas.getHeight() / 2f;
+            final String s = String.format("%s%%", progress * 100);
+            canvas.drawText(s, cx, cy, mPaint);
+        }
+
+        @Override
+        public void setAlpha(final int alpha) {
+            mPaint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(final ColorFilter cf) {
+            mPaint.setColorFilter(cf);
+        }
+
+        @Override
+        public int getOpacity() {
+            return 1 - mPaint.getAlpha();
+        }
+    }
 
 }

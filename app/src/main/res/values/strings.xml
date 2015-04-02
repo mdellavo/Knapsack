@@ -11,7 +11,7 @@
     <string name="notification_text">Archiving - %s</string>
     <string name="archived">Page Archived</string>
     <string name="archive_error">Error Archiving Page</string>
-    <string name="archiving">Archving Page</string>
+    <string name="archiving">Archiving Page</string>
     <string name="setup_sync">Setup Sync</string>
     <string name="sync">Sync</string>
     <string name="prefs">Settings</string>

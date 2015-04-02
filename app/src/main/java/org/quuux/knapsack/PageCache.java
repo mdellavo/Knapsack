@@ -25,6 +25,8 @@ public class PageCache {
     protected PageCache() {}
 
     public Page loadPage(final File manifest) {
+        final long t1 = System.currentTimeMillis();
+
         Page rv = null;
         if (manifest.exists()) {
             Sack<Page> store = Sack.open(Page.class, manifest);
@@ -34,6 +36,10 @@ public class PageCache {
                 addPage(rv);
             }
         }
+
+        final long t2 = System.currentTimeMillis();
+        Log.d(TAG, "loaded %s in %s ms", manifest.getPath(), t2-t1);
+
         return rv;
     }
 
@@ -46,6 +52,8 @@ public class PageCache {
     }
 
     public Page commitPage(final Page page) {
+
+        final long t1 = System.currentTimeMillis();
 
         final File parent = CacheManager.getArchivePath(page);
 
@@ -62,6 +70,9 @@ public class PageCache {
         if (result.first == Sack.Status.SUCCESS) {
             rv = result.second;
         }
+
+        final long t2 = System.currentTimeMillis();
+        Log.d(TAG, "committed %s in %s ms", manifest.getPath(), t2-t1);
         return rv;
     }
 
@@ -81,18 +92,25 @@ public class PageCache {
 
         mScanned = true;
 
+        final long t1 = System.currentTimeMillis();
+
         final List<Page> rv = new ArrayList<Page>();
 
         final File[] files = CacheManager.getArchivePath().listFiles();
         if (files == null)
             return;
 
+        int count = 0;
         for (final File file : files) {
             final File manifest = new File(file, "manifest.json");
             if (file.isDirectory() && manifest.isFile()) {
                 loadPage(manifest);
+                count++;
             }
         }
+
+        final long t2 = System.currentTimeMillis();
+        Log.d(TAG, "scanned %s in %s ms", count, t2-t1);
     }
 
     public Page getPage(final String url) {
@@ -150,8 +168,11 @@ public class PageCache {
     }
 
     public void deletePage(final Page page) {
+        final long t1 = System.currentTimeMillis();
         mPages.remove(page);
         CacheManager.delete(page);
+        final long t2 = System.currentTimeMillis();
+        Log.d(TAG, "deleted %s in %s", CacheManager.getArchivePath(page).getPath(), t2-t1);
     }
 
     public static PageCache getInstance() {

@@ -11,7 +11,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.ServiceConnection;
+import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -21,19 +24,20 @@ import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.graphics.Palette;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.StaggeredGridLayoutManager;
 import android.text.Html;
-import android.util.Pair;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ListPopupWindow;
-import android.widget.ListView;
 import android.widget.TextView;
 
 import com.android.vending.billing.IInAppBillingService;
@@ -41,20 +45,26 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
-
-import org.quuux.sack.Sack;
+import com.squareup.picasso.Target;
+import com.squareup.picasso.Transformation;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-public class IndexActivity extends ActionBarActivity implements AdapterView.OnItemClickListener, SwipeRefreshLayout.OnRefreshListener {
+import jp.wasabeef.recyclerview.animators.LandingAnimator;
+import jp.wasabeef.recyclerview.animators.adapters.AlphaInAnimationAdapter;
+import jp.wasabeef.recyclerview.animators.adapters.AnimationAdapter;
+import jp.wasabeef.recyclerview.animators.adapters.ScaleInAnimationAdapter;
+
+public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayout.OnRefreshListener {
 
     private static final String TAG = Log.buildTag(IndexActivity.class);
 
@@ -69,13 +79,15 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
     private static final String ACTION_PURCHASE = "org.quuux.knapsack.action.PURCHASE";
     private static final String SKU_PREMIUM = "premium";
 
-    private ListView mListView;
+    private RecyclerView mRecyclerView;
     private SwipeRefreshLayout mSwipeLayout;
     private Adapter mAdapter;
 
     private static boolean sNagShown;
     private Set<String> mPurchases = Collections.<String>emptySet();
     private IInAppBillingService mService;
+    private RecyclerView.LayoutManager mLayoutManager;
+    private Map<String, Palette> mPaletteCache = new HashMap<>();
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -88,10 +100,14 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
         mSwipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_container);
         mSwipeLayout.setOnRefreshListener(this);
-        mSwipeLayout.setEnabled(hasSync);
 
-        mListView = (ListView) findViewById(android.R.id.list);
-        mListView.setOnItemClickListener(this);
+        mRecyclerView = (RecyclerView) findViewById(android.R.id.list);
+        mRecyclerView.setHasFixedSize(true);
+
+        final boolean isPortrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
+        mLayoutManager = new StaggeredGridLayoutManager(isPortrait ? 2 : 3, StaggeredGridLayoutManager.VERTICAL); //new GridLayoutManager(this, isPortrait ? 2 : 3);
+        mRecyclerView.setLayoutManager(mLayoutManager);
+        mRecyclerView.setItemAnimator(new LandingAnimator());
 
         if (checkPlayServices()) {
             if (hasSync) {
@@ -101,9 +117,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         } else {
             Log.i(TAG, "No valid Google Play Services APK found.");
         }
-
-        mAdapter = new Adapter();
-        mListView.setAdapter(mAdapter);
 
         loadArchives();
         sync();
@@ -179,9 +192,7 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         new ScanArchivesTask().execute();
     }
 
-    @Override
-    public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
-        final Page page = (Page) mListView.getAdapter().getItem(position);
+    public void onPageClick(final Page page) {
         if (page.status == Page.STATUS_SUCCESS) {
             final Intent intent = new Intent(this, ViewerActivity.class);
             intent.putExtra("page", page);
@@ -275,16 +286,13 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
 
         final PendingIntent pendingIntent = response.getParcelable("BUY_INTENT");
         try {
-            startIntentSenderForResult(pendingIntent.getIntentSender(),
-                    1001, new Intent(), Integer.valueOf(0), Integer.valueOf(0),
-                    Integer.valueOf(0));
+            startIntentSenderForResult(pendingIntent.getIntentSender(), 1001, new Intent(), 0, 0, 0);
         } catch (final IntentSender.SendIntentException e) {
             Log.e(TAG, "error starting purchase: %s", e);
         }
 
         sendEvent("ui", "start purchase");
     }
-
 
     private void initBilling() {
         new QueryPurchasesTask().execute();
@@ -310,7 +318,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         mPurchases = purchases;
         Preferences.setPurchases(this, purchases);
         onPurchasesUpdated();
-
     }
 
     private void onPurchaseComplete() {
@@ -406,7 +413,6 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                     API.deletePage(authToken, page);
                 }
 
-
                 return null;
             }
         }.execute();
@@ -431,95 +437,62 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         startActivity(i);
     }
 
-    class Adapter extends BaseAdapter {
+    class Adapter extends RecyclerView.Adapter<Holder> {
         private final List<Page> mPages;
 
         public Adapter() {
             mPages = new ArrayList<Page>();
+            setHasStableIds(true);
         }
 
         @Override
-        public boolean hasStableIds() {
-            return true;
-        }
-
-        @Override
-        public int getCount() {
-            return mPages.size();
-        }
-
-        @Override
-        public Page getItem(final int position) {
-            return mPages.get(position);
-        }
-
-        @Override
-        public long getItemId(final int position) {
-            return mPages.get(position).url.hashCode();
-        }
-
-        @Override
-        public View getView(final int position, final View convertView, final ViewGroup parent) {
-            final View rv = convertView != null ? convertView : newView(parent);
-            bindView((Holder) rv.getTag(), getItem(position), position);
-            return rv;
-        }
-
-        private View newView(final ViewGroup parent) {
-            final View view = getLayoutInflater().inflate(R.layout.archived_page_row, parent, false);
-            final Holder holder = new Holder();
+        public Holder onCreateViewHolder(final ViewGroup parent, final int viewType) {
+            final View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.archived_page_row, parent, false);
+            final Holder holder = new Holder(view);
             holder.title = (TextView)view.findViewById(R.id.title);
-            holder.url = (TextView)view.findViewById(R.id.url);
             holder.screenshot = (ImageView)view.findViewById(R.id.screenshot);
             holder.favicon = (ImageView)view.findViewById(R.id.favicon);
             holder.more = view.findViewById(R.id.more);
             holder.created = (TextView) view.findViewById(R.id.created);
             holder.read = (TextView) view.findViewById(R.id.read);
             holder.status = (ImageView)view.findViewById(R.id.status);
-            view.setTag(holder);
-            return view;
-        }
+            holder.footer = view.findViewById(R.id.footer);
 
-        private void bindView(final Holder holder, final Page page, final int position) {
-            holder.position = position;
-            holder.title.setText(page.title);
-            holder.url.setText(Uri.parse(page.url).getHost());
-
-            final File favicon = CacheManager.getArchivePath(page.url, "favicon.png");
-
-            final Callback fallbackIcon = new Callback.EmptyCallback() {
-                @Override
-                public void onError() {
-                    holder.favicon.setVisibility(View.VISIBLE);
-                    holder.favicon.setImageResource(R.drawable.ic_cloud);
-                }
-            };
-
-            final Callback loadFavicon = new Callback() {
-                @Override
-                public void onSuccess() {
-                    holder.favicon.setVisibility(View.GONE);
-                }
+            view.setOnClickListener(new View.OnClickListener() {
 
                 @Override
-                public void onError() {
-                    holder.screenshot.setImageResource(R.drawable.blank);
-                    Picasso.with(IndexActivity.this).load(favicon).noFade().fit().centerInside().into(holder.favicon, fallbackIcon);
+                public void onClick(final View v) {
+                    final Page page = mPages.get(holder.getPosition());
+                    onPageClick(page);
                 }
-            };
-
-            holder.screenshot.setImageResource(R.drawable.blank);
-            holder.favicon.setImageResource(View.VISIBLE);
-
-            final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
-            Picasso.with(IndexActivity.this).load(screenshot).into(holder.screenshot, loadFavicon);
+            });
 
             holder.more.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(final View v) {
+                    final Page page = mPages.get(holder.getPosition());
                     showPopup(v, page);
                 }
             });
+            return holder;
+        }
+
+        public Page getPage(final int position) {
+            return mPages.get(position);
+        }
+
+        @Override
+        public void onBindViewHolder(final Holder holder, final int position) {
+            final Page page = getPage(position);
+
+            holder.position = position;
+            holder.title.setText(page.title);
+
+            holder.screenshot.setImageResource(R.drawable.blank);
+            holder.favicon.setImageResource(View.VISIBLE);
+
+            resetColors(holder);
+            loadScreenshot(page, holder);
 
             holder.created.setText(page.created != null ? formatCreated(page.created) : null);
             holder.created.setVisibility(page.created != null ? View.VISIBLE : View.GONE);
@@ -536,6 +509,115 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
                 holder.status.setImageResource(R.drawable.ic_syncing);
             else if (isError)
                 holder.status.setImageResource(R.drawable.ic_error);
+
+        }
+
+        @Override
+        public int getItemCount() {
+            return mPages.size();
+        }
+
+        @Override
+        public long getItemId(final int position) {
+            return mPages.get(position).hashCode();
+        }
+
+        private void loadDefault(final Holder holder) {
+            holder.favicon.setVisibility(View.VISIBLE);
+            holder.favicon.setImageResource(R.drawable.ic_cloud);
+            holder.screenshot.setImageResource(R.drawable.blank);
+        }
+
+        private void loadFavicon(final Page page, final Holder holder) {
+            holder.favicon.setVisibility(View.VISIBLE);
+            holder.screenshot.setImageResource(R.drawable.blank);
+            final File favicon = CacheManager.getArchivePath(page.url, "favicon.png");
+            final Callback fallbackIcon = new Callback.EmptyCallback() {
+                @Override
+                public void onError() {
+                    loadDefault(holder);
+                }
+            };
+
+            Picasso.with(IndexActivity.this).load(favicon).fit().centerInside().into(holder.favicon, fallbackIcon);
+        }
+
+        private void resetColors(final Holder holder) {
+            holder.footer.setBackgroundColor(getResources().getColor(android.R.color.white));
+            holder.title.setTextColor(getResources().getColor(android.R.color.black));
+            holder.created.setTextColor(getResources().getColor(android.R.color.black));
+        }
+
+        private void color(final Page page, final Holder holder, final Bitmap bitmap) {
+
+            final Palette.PaletteAsyncListener paletteListener = new Palette.PaletteAsyncListener() {
+                @Override
+                public void onGenerated(final Palette palette) {
+                    mPaletteCache.put(page.url, palette);
+
+                    List<Palette.Swatch> swatches = palette.getSwatches();
+                    if (swatches.size() == 0)
+                        return;
+
+                    Log.d(TAG, "swatches generated: %s", swatches.size());
+
+                    final Palette.Swatch swatch = swatches.get(0);
+
+                    try {
+                        holder.footer.setBackgroundColor(swatch.getRgb());
+                        holder.title.setTextColor(swatch.getTitleTextColor());
+                        holder.created.setTextColor(swatch.getBodyTextColor());
+                    } catch (RuntimeException e) {
+                        Log.e(TAG, "error generating palette", e);
+                    }
+                }
+            };
+
+            final Palette palette = mPaletteCache.get(page.url);
+            if (palette != null) {
+                paletteListener.onGenerated(palette);
+            } else {
+                Palette.generateAsync(bitmap, paletteListener);
+            }
+        }
+
+        private void loadScreenshot(final Page page, final Holder holder) {
+            holder.favicon.setVisibility(View.GONE);
+            final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
+
+            holder.target = new Target() {
+                @Override
+                public void onBitmapLoaded(final Bitmap bitmap, final Picasso.LoadedFrom from) {
+                    color(page, holder, bitmap);
+                    holder.screenshot.setImageBitmap(bitmap);
+                }
+
+                @Override
+                public void onBitmapFailed(final Drawable errorDrawable) {
+                    loadFavicon(page, holder);
+                }
+
+                @Override
+                public void onPrepareLoad(final Drawable placeHolderDrawable) {
+
+                }
+            };
+
+            final Transformation transformation = new Transformation() {
+                @Override
+                public Bitmap transform(final Bitmap source) {
+                    final Bitmap rv = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight()/2);
+                    source.recycle();
+                    return rv;
+                }
+
+                @Override
+                public String key() {
+                    return page.url;
+                }
+            };
+
+            Picasso.with(IndexActivity.this).load(screenshot).transform(transformation).into(holder.target);
         }
 
         private CharSequence formatCreated(final Date created) {
@@ -558,22 +640,48 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         }
 
         public void update() {
-            mPages.clear();
-            mPages.addAll(PageCache.getInstance().getPagesSorted());
-            notifyDataSetChanged();
+            final List<Page> pages = PageCache.getInstance().getPagesSorted();
+
+            for (final Page p: mPages) {
+                if (!pages.contains(p)) {
+                    remove(p);
+                }
+            }
+
+            for (final Page p : pages) {
+                if (!mPages.contains(p)) {
+                    add(p);
+                }
+            }
+            mAdapter.notifyDataSetChanged();
+            mRecyclerView.getAdapter().notifyDataSetChanged();
+        }
+
+        public void add(final Page page) {
+            mPages.add(page);
+            final int position = mPages.indexOf(page);
+            mAdapter.notifyItemInserted(position);
+            mRecyclerView.getAdapter().notifyItemInserted(position);
         }
 
         public void remove(final Page page) {
+            final int position = mPages.indexOf(page);
             mPages.remove(page);
-            notifyDataSetChanged();
+            mAdapter.notifyItemRemoved(position);
+            mRecyclerView.getAdapter().notifyItemInserted(position);
         }
     }
 
-    class Holder {
+    class Holder extends RecyclerView.ViewHolder {
         int position;
-        TextView url, title, created, read;
+        TextView title, created, read;
         ImageView screenshot, favicon, status;
-        View more;
+        View more, footer;
+        Target target;
+
+        public Holder(final View itemView) {
+            super(itemView);
+        }
     }
 
     class ScanArchivesTask extends AsyncTask<Void, Void, Void> {
@@ -587,6 +695,13 @@ public class IndexActivity extends ActionBarActivity implements AdapterView.OnIt
         @Override
         protected void onPostExecute(final Void result) {
             super.onPostExecute(result);
+
+            if (mAdapter == null) {
+                mAdapter = new Adapter();
+                final AnimationAdapter adapter = new AlphaInAnimationAdapter(mAdapter);
+                mRecyclerView.setAdapter(adapter);
+            }
+
             mAdapter.update();
             mSwipeLayout.setRefreshing(false);
         }

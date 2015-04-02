@@ -42,7 +42,7 @@
         </activity>
         <activity
             android:name=".IndexActivity"
-            android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
+            android:theme="@style/Theme.AppCompat" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -54,7 +54,7 @@
         <activity
             android:name=".ViewerActivity"
             android:label="@string/title_activity_viewer"
-            android:theme="@style/ViewerTheme"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
             android:configChanges="orientation"
             >
         </activity>
