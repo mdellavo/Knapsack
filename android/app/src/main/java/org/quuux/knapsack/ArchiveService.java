@@ -385,6 +385,7 @@ public class ArchiveService extends IntentService {
                 .setContentText(page.title)
                 .setSmallIcon(R.drawable.ic_stat_archving)
                 .setContentIntent(pendingIntent)
+                .setNumber(mArchiving.size())
                 .setProgress(100, 0, true);
 
         updateNotification(builder.build(), page);
@@ -481,7 +482,7 @@ public class ArchiveService extends IntentService {
 
                 builder.setProgress(0, 0, true);
                 builder.setContentTitle(getString(R.string.archiving));
-                builder.setContentText(page.title);
+                builder.setNumber(mArchiving.size());
                 updateNotification(builder.build(), page);
 
                 mHandler.removeCallbacks(timeout);
@@ -555,6 +556,7 @@ public class ArchiveService extends IntentService {
         builder.setProgress(0, 0, false);
         builder.setContentTitle(getString(R.string.archived));
         builder.setContentText(page.title);
+        builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
     }
 
@@ -562,6 +564,7 @@ public class ArchiveService extends IntentService {
         builder.setProgress(0, 0, false);
         builder.setContentTitle(getString(R.string.archive_error));
         builder.setContentText(page.title);
+        builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
     }
 

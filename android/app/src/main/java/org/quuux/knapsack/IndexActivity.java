@@ -619,7 +619,7 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
             final Transformation transformation = new Transformation() {
                 @Override
                 public Bitmap transform(final Bitmap source) {
-                    final Bitmap rv = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight()/2);
+                    final Bitmap rv = Bitmap.createBitmap(source, 0, 0, source.getWidth(), (int)Math.round(source.getHeight() * .6667));
                     source.recycle();
                     return rv;
                 }
