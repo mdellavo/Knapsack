@@ -50,7 +50,7 @@
     <string name="delete">Delete</string>
     <string name="archive_page_title">Save Page</string>
     <string name="archive_page_message">This page has been added to your knapsack but not saved successfully. Would you like to saved this page now?</string>
-    <string name="archive">Archive</string>
+    <string name="archive">Save</string>
     <string name="pref_wifi_only">Save via WiFi only</string>
 
     <string-array name="more">

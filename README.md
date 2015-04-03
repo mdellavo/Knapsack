@@ -19,6 +19,5 @@ Ideas
 
 ToDo
 ----
-- [ ] Empty View
 - [ ] Backend needs to skip originating device
 - [ ] Hook purchase into prefs/sync

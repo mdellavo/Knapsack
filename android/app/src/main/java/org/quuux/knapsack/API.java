@@ -34,6 +34,7 @@ public class API {
     private static final String PAGES_URL = API_ROOT + "/pages";
 
     private static final String SCOPE = "oauth2:https://www.googleapis.com/auth/userinfo.email";
+    private static final String HEADER_AUTH_TOKEN = "AUTH";
 
     static class GetPagesResponse {
         String status;
@@ -42,23 +43,19 @@ public class API {
     }
 
     static class SetPageRequest {
-        String auth_token;
         List<Page> pages;
 
-        public SetPageRequest(final String auth_token, final List<Page> pages) {
+        public SetPageRequest(final List<Page> pages) {
             super();
-            this.auth_token = auth_token;
             this.pages = pages;
         }
     }
 
     static class AddPageRequest {
-        String auth_token;
         Page page;
 
-        public AddPageRequest(final String authToken, final Page page) {
+        public AddPageRequest(final Page page) {
             super();
-            this.auth_token = authToken;
             this.page = page;
         }
     }
@@ -75,34 +72,31 @@ public class API {
         return response.body().string();
     }
 
-    private static String get(final String url) throws IOException {
-        final Request request = new Request.Builder()
-                .url(url)
-                .get()
-                .build();
+    private static Request.Builder getRequest(final String url, final String authToken) {
+        return new Request.Builder().url(url).addHeader(HEADER_AUTH_TOKEN, authToken);
+    }
 
+    private static String get(final String url, final String authToken) throws IOException {
+        final Request request = getRequest(url, authToken).get().build();
        return execute(request);
     }
 
-    private static String post(final String url, final String json) throws IOException {
-        final Request request = new Request.Builder()
-                .url(url)
+    private static String post(final String url, final String json, final String authToken) throws IOException {
+        final Request request = getRequest(url, authToken)
                 .post(RequestBody.create(JSON, json))
                 .build();
         return execute(request);
     }
 
-    private static String put(final String url, final String json) throws IOException {
-        final Request request = new Request.Builder()
-                .url(url)
+    private static String put(final String url, final String json, final String authToken) throws IOException {
+        final Request request = getRequest(url, authToken)
                 .put(RequestBody.create(JSON, json))
                 .build();
         return execute(request);
     }
 
-    private static String delete(final String url, final String json) throws IOException {
-        final Request request = new Request.Builder()
-                .url(url)
+    private static String delete(final String url, final String json, final String authToken) throws IOException {
+        final Request request = getRequest(url, authToken)
                 .method("DELETE",  RequestBody.create(JSON, json))
                 .build();
         return execute(request);
@@ -114,9 +108,8 @@ public class API {
             final JSONObject params = new JSONObject();
             params.put("device_token", registrationId);
             params.put("model", Build.MODEL);
-            params.put("auth_token", authToken);
 
-            final String body = post(CHECKIN_URL, params.toString());
+            final String body = post(CHECKIN_URL, params.toString(), authToken);
             final JSONObject resp = new JSONObject(body);
             rv = "ok".equals(resp.optString("status"));
         } catch(IOException e) {
@@ -133,13 +126,12 @@ public class API {
 
         try {
             final JSONObject params = new JSONObject();
-            params.put("auth_token", authToken);
             params.put("url", page.url);
 
             if (page.uid != null)
                 params.put("uid", page.uid);
 
-            final String json = delete(PAGES_URL, params.toString());
+            final String json = delete(PAGES_URL, params.toString(), authToken);
             final JSONObject resp = new JSONObject(json);
             rv = "ok".equals(resp.optString("status"));
 
@@ -153,13 +145,13 @@ public class API {
     }
 
     public static boolean setPages(final String authToken, final List<Page> pages) {
-        final SetPageRequest req = new SetPageRequest(authToken, pages);
+        final SetPageRequest req = new SetPageRequest(pages);
         final Gson gson = getGson();
         final String json = gson.toJson(req);
 
         boolean rv = false;
         try {
-            final String respJson = put(PAGES_URL, json);
+            final String respJson = put(PAGES_URL, json, authToken);
             final JSONObject resp = new JSONObject(respJson);
             rv = "ok".equals(resp.optString("status"));
         } catch (IOException | JSONException | JsonSyntaxException e) {
@@ -170,13 +162,13 @@ public class API {
     }
 
     public static boolean addPage(final String authToken, final Page page) {
-        final AddPageRequest req = new AddPageRequest(authToken, page);
+        final AddPageRequest req = new AddPageRequest(page);
         final Gson gson = getGson();
         final String json = gson.toJson(req);
 
         boolean rv = false;
         try {
-            final String respJson = post(PAGES_URL, json);
+            final String respJson = post(PAGES_URL, json, authToken);
             final JSONObject resp = new JSONObject(respJson);
             rv = "ok".equals(resp.optString("status"));
         } catch (IOException | JSONException | JsonSyntaxException e) {
@@ -193,7 +185,7 @@ public class API {
         final Gson gson = getGson();
 
         try {
-            final String json = get(PAGES_URL + "?auth_token=" + authToken);
+            final String json = get(PAGES_URL, authToken);
 
             //Log.d(TAG, "json: %s", json);
 

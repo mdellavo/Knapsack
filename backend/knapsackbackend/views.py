@@ -4,7 +4,6 @@ from gcm import GCM
 from pyramid.view import view_config
 import requests
 from sqlalchemy import and_, or_
-import transaction
 
 from .models import (
     Session,
@@ -24,6 +23,7 @@ API_KEY = 'AIzaSyBnoToB2rfo1wlkWi8-bbWTB9DPACiKb3Y'
 VALIDATION_ENDPOINT = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
 
 EVENT_PAGE_ADD = 'pa'
+
 
 def error(message=None, **kwargs):
     rv = {'status': 'error', 'message': message}
@@ -56,8 +56,11 @@ def cache_auth_token(user, auth_token, expires_in):
 def validate_auth_token(f):
     def _validate_auth_token(request, *args, **kwargs):
 
-        params = request.GET if request.GET else json.loads(request.body)
-        auth_token = params.get('auth_token')
+        auth_token = request.headers.get('AUTH')
+
+        import pprint
+        pprint.pprint(dict(request.headers))
+
         if not auth_token:
             return error('invalid auth_token')
 

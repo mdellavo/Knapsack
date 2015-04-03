@@ -64,7 +64,6 @@ import java.util.Set;
 import jp.wasabeef.recyclerview.animators.LandingAnimator;
 import jp.wasabeef.recyclerview.animators.adapters.AlphaInAnimationAdapter;
 import jp.wasabeef.recyclerview.animators.adapters.AnimationAdapter;
-import jp.wasabeef.recyclerview.animators.adapters.ScaleInAnimationAdapter;
 
 public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayout.OnRefreshListener {
 
@@ -159,8 +158,10 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
     public boolean onCreateOptionsMenu(final Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
 
-        final boolean hasSync = Preferences.hasSyncAccount(this);
-        menu.findItem(R.id.setup_sync).setVisible(!hasSync);
+        final boolean hasAccount = Preferences.hasSyncAccount(this);
+        // allow backdoor for grandfathered users
+        final boolean hasSync = isUnlocked()  && !hasAccount;
+        menu.findItem(R.id.setup_sync).setVisible(hasSync);
 
         return super.onCreateOptionsMenu(menu);
     }
@@ -192,6 +193,10 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
     public void onBackPressed() {
         sNagShown = false;
         super.onBackPressed();
+    }
+
+    private boolean isUnlocked() {
+        return Preferences.getPurchases(this).contains(SKU_PREMIUM);
     }
 
     private void loadArchives() {
@@ -324,13 +329,6 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
         mPurchases = purchases;
         Preferences.setPurchases(this, purchases);
         onPurchasesUpdated();
-    }
-
-    private void onPurchaseComplete() {
-        mPurchases.add(SKU_PREMIUM);
-        Preferences.setPurchases(this, mPurchases);
-        onPurchasesUpdated();
-        sendEvent("ui", "purchase complete");
     }
 
     private void hideNag() {

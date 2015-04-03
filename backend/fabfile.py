@@ -50,6 +50,7 @@ def get_container(name):
 
 FROM_GIT = False
 
+
 def deploy_app():
     grunt()
 
@@ -61,6 +62,7 @@ def deploy_app():
     put('deploy/nginx/configs/nginx.conf', 'etc/nginx')
 
     rsync_project('knapsack-backend', '.', ('build', 'node_modules', 'bower_components'))
+
 
 def deploy_container(name):
     container = get_container(name)
@@ -154,6 +156,7 @@ def deploy():
     deploy_containers()
     deploy_app()
     restart_containers()
+
 
 def grunt():
     local('grunt')
