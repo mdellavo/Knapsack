@@ -13,12 +13,12 @@ Chrome WebStore
 
 https://chrome.google.com/webstore/detail/knapsack/mbfcbodpdkoofkphfkgfdlghpojldipe
 
-Issues
-------
+Ideas
+-----
+- Detect large patches of solid color, manual snap
+
+ToDo
+----
+- [ ] Empty View
 - [ ] Backend needs to skip originating device
 - [ ] Hook purchase into prefs/sync
-- [ ] Infinite loading spinner
-- [*] ViewActivity doesnt load proper page from notification intent
-- [ ] Stalls in archiving
-- [ ] Refactor notifications, add to single as entered into queue
-

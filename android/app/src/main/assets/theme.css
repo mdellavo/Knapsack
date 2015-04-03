@@ -1,0 +1,17 @@
+h1 {
+    padding-top: 1em;
+    text-align: center;
+}
+
+h1, p {
+    color: #737373;
+}
+
+strong {
+    color: #848484;
+}
+
+a {
+   color: 4242ff;
+   font-weight: bold;
+}

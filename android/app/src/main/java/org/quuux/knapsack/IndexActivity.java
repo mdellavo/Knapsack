@@ -14,6 +14,7 @@ import android.content.ServiceConnection;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -33,6 +34,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -88,6 +90,7 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
     private IInAppBillingService mService;
     private RecyclerView.LayoutManager mLayoutManager;
     private Map<String, Palette> mPaletteCache = new HashMap<>();
+    private WebView mEmptyView;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -97,6 +100,9 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
 
         final String syncAccount = Preferences.getSyncAccount(this);
         final boolean hasSync = !syncAccount.isEmpty();
+
+        mEmptyView = (WebView) findViewById(R.id.empty);
+        mEmptyView.setBackgroundColor(Color.TRANSPARENT);
 
         mSwipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_container);
         mSwipeLayout.setOnRefreshListener(this);
@@ -423,6 +429,13 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
         ArchiveService.sync(this);
     }
 
+    private void toggleEmptyView() {
+        final boolean isEmpty = mAdapter.mPages.isEmpty();
+        mSwipeLayout.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+        mEmptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        mEmptyView.loadUrl("file:///android_asset/empty.html");
+    }
+
     private void refreshPage(final Page page) {
         Intent i = new Intent(this, ArchiveService.class);
         i.setAction(Intent.ACTION_SEND);
@@ -653,6 +666,9 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
                     add(p);
                 }
             }
+
+            toggleEmptyView();
+
             mAdapter.notifyDataSetChanged();
             mRecyclerView.getAdapter().notifyDataSetChanged();
         }
