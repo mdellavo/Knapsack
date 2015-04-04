@@ -14,7 +14,7 @@ function replace(fmt) {
     return fmt.replace(/{(\d+)}/g, replacer);
 }
 
-function doRequest(method, url, params, callback) {
+function doRequest(method, url, params, callback, authToken) {
     var xhr = new XMLHttpRequest();
 
     xhr.open(method, url, true);
@@ -28,6 +28,8 @@ function doRequest(method, url, params, callback) {
         }
     };
 
+    xhr.setRequestHeader('AUTH', authToken);
+
     if (params) {
         xhr.setRequestHeader('Content-type', 'application/json');
         xhr.send(JSON.stringify(params));
@@ -38,12 +40,7 @@ function doRequest(method, url, params, callback) {
 
 function request(method, url, params, callback) {
     getAuthToken(function (token) {
-        if (method == 'GET')
-            url += '?auth_token=' + token;
-        else
-            params.auth_token = token;
-
-        doRequest(method, url, params, callback);
+        doRequest(method, url, params, callback, token);
     });
 }
 
