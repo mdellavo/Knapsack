@@ -34,7 +34,7 @@ public class API {
     private static final String PAGES_URL = API_ROOT + "/pages";
 
     private static final String SCOPE = "oauth2:https://www.googleapis.com/auth/userinfo.email";
-    private static final String HEADER_AUTH_TOKEN = "AUTH";
+    private static final String HEADER_AUTH_TOKEN = "Auth";
 
     static class GetPagesResponse {
         String status;
@@ -67,7 +67,7 @@ public class API {
         final Response response = client.newCall(request).execute();
         final long t2 = System.currentTimeMillis();
 
-        Log.d(TAG, "%s %s (%sms)", request.method(), request.urlString(), t2-t1);
+        Log.d(TAG, "%s %s (%sms) -> %s", request.method(), request.urlString(), t2-t1, response.code());
 
         return response.body().string();
     }

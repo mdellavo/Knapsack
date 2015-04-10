@@ -559,36 +559,21 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
             holder.created.setTextColor(getResources().getColor(android.R.color.black));
         }
 
-        private void color(final Page page, final Holder holder, final Bitmap bitmap) {
+        private void color(final Page page, final Holder holder, final Palette palette) {
+            List<Palette.Swatch> swatches = palette.getSwatches();
+            if (swatches.size() == 0)
+                return;
 
-            final Palette.PaletteAsyncListener paletteListener = new Palette.PaletteAsyncListener() {
-                @Override
-                public void onGenerated(final Palette palette) {
-                    mPaletteCache.put(page.url, palette);
+            Log.d(TAG, "swatches generated: %s", swatches.size());
 
-                    List<Palette.Swatch> swatches = palette.getSwatches();
-                    if (swatches.size() == 0)
-                        return;
+            final Palette.Swatch swatch = swatches.get(0);
 
-                    Log.d(TAG, "swatches generated: %s", swatches.size());
-
-                    final Palette.Swatch swatch = swatches.get(0);
-
-                    try {
-                        holder.footer.setBackgroundColor(swatch.getRgb());
-                        holder.title.setTextColor(swatch.getTitleTextColor());
-                        holder.created.setTextColor(swatch.getBodyTextColor());
-                    } catch (RuntimeException e) {
-                        Log.e(TAG, "error generating palette", e);
-                    }
-                }
-            };
-
-            final Palette palette = mPaletteCache.get(page.url);
-            if (palette != null) {
-                paletteListener.onGenerated(palette);
-            } else {
-                Palette.generateAsync(bitmap, paletteListener);
+            try {
+                holder.footer.setBackgroundColor(swatch.getRgb());
+                holder.title.setTextColor(swatch.getTitleTextColor());
+                holder.created.setTextColor(swatch.getBodyTextColor());
+            } catch (RuntimeException e) {
+                Log.e(TAG, "error generating palette", e);
             }
         }
 
@@ -599,7 +584,10 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
             holder.target = new Target() {
                 @Override
                 public void onBitmapLoaded(final Bitmap bitmap, final Picasso.LoadedFrom from) {
-                    color(page, holder, bitmap);
+                    final Palette palette = mPaletteCache.get(page.url);
+                    if (palette != null)
+                        color(page, holder, palette);
+
                     holder.screenshot.setImageBitmap(bitmap);
                 }
 
@@ -619,6 +607,12 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
                 public Bitmap transform(final Bitmap source) {
                     final Bitmap rv = Bitmap.createBitmap(source, 0, 0, source.getWidth(), (int)Math.round(source.getHeight() * .6667));
                     source.recycle();
+
+                    if (!mPaletteCache.containsKey(page.url)) {
+                        final Palette palette = Palette.generate(rv);
+                        mPaletteCache.put(page.url, palette);
+                    }
+
                     return rv;
                 }
 

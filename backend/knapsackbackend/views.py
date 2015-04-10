@@ -56,10 +56,7 @@ def cache_auth_token(user, auth_token, expires_in):
 def validate_auth_token(f):
     def _validate_auth_token(request, *args, **kwargs):
 
-        auth_token = request.headers.get('AUTH')
-
-        import pprint
-        pprint.pprint(dict(request.headers))
+        auth_token = request.headers.get('Auth')
 
         if not auth_token:
             return error('invalid auth_token')

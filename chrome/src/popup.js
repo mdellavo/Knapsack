@@ -28,7 +28,7 @@ function doRequest(method, url, params, callback, authToken) {
         }
     };
 
-    xhr.setRequestHeader('AUTH', authToken);
+    xhr.setRequestHeader('Auth', authToken);
 
     if (params) {
         xhr.setRequestHeader('Content-type', 'application/json');

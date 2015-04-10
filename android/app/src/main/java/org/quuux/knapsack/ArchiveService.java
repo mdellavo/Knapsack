@@ -26,6 +26,7 @@ import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -583,7 +584,12 @@ public class ArchiveService extends IntentService {
 
         boolean rv;
         try {
-            view.saveWebArchive(CacheManager.getArchivePath(page.url, "index.mht").getPath());
+            view.saveWebArchive(CacheManager.getArchivePath(page.url, "index.mht").getPath(), false, new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(final String value) {
+                    Log.d(TAG, "archive saved: %s", value);
+                }
+            });
             final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             final Canvas canvas = new Canvas(bitmap);
             view.draw(canvas);
