@@ -14,6 +14,7 @@ def main(global_config, **settings):
     Session.configure(bind=engine)
     Base.metadata.bind = engine
     config = Configurator(settings=settings)
+    config.include('pyramid_mako')
     config.add_static_view(name='assets', path='knapsackbackend:assets')
     config.add_route('pages', '/pages')
     config.add_route('device_tokens', '/device_tokens')

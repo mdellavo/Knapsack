@@ -238,6 +238,7 @@ def add_device_token(request, user):
 
     return ok()
 
+
 @view_config(route_name='root', renderer='root.mako')
 def root(request):
     return {}

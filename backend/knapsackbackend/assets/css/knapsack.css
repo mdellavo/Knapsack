@@ -1,15 +1,20 @@
 body {
     background: #333;
     padding-bottom: 70px;
+    font-family: Verdana, "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+    text-align: center;
 }
 
 h1 {
     color: #eee;
     font-family: 'Bowlby One SC';
-    text-align: center;
     padding-top: 60px;
     font-size: 72pt;
     margin: 0;
+}
+
+a  {
+    color: #66f;
 }
 
 .slug {
@@ -25,7 +30,7 @@ h1 {
     background: #666;
     border: 2px solid #888;
     padding-top: 40px;
-    paddin-bottom: 40px;
+    padding-bottom: 40px;
 }
 
 .footer {
