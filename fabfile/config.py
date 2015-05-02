@@ -1,5 +1,7 @@
 import os
 
+HOSTNAME = "knapsack.quuux.org"
+
 USER = "ubuntu"
 
 DATABASE_NAME = "knapsack"
@@ -12,7 +14,10 @@ PROJECT_DIR = os.path.join(os.path.dirname(__file__), "..", "backend")
 NGINX_CONFIG = os.path.join(os.path.dirname(__file__), "nginx.conf")
 UWSGI_CONFIG = os.path.join(os.path.dirname(__file__), "uwsgi.ini")
 
+ADMIN_EMAIL = "knapsack@quuux.org"
+
 BASE_PACKAGES = [
+    "postfix",
     "curl",
     "python-software-properties",
     "emacs23-nox",
@@ -70,12 +75,6 @@ STACK = {
         }
     },
     "Resources": {
-        "Zone": {
-            "Type": "AWS::Route53::HostedZone",
-            "Properties": {
-                "Name": "knapsack.quuux.org"
-            }
-        },
 
         "AppServerInstance": {
             "Type": "AWS::EC2::Instance",
@@ -96,14 +95,19 @@ STACK = {
         },
 
         "Hosts": {
-            "Type": "AWS::Route53::RecordSet",
+            "Type": "AWS::Route53::RecordSetGroup",
+            "DependsOn": "IPAddress",
             "Properties": {
-                "HostedZoneName": "knapsack.quuux.org.",
-                "Name": "knapsack.quuux.org",
-                "Type": "A",
-                "TTL": "300",
-                "ResourceRecords": [{"Fn::GetAtt": ["AppServerInstance", "PublicIp"]}]
-            }
+                "HostedZoneName": "quuux.org.",
+                "RecordSets": [
+                    {
+                        "Name": "knapsack.quuux.org.",
+                        "Type": "A",
+                        "TTL": "60",
+                        "ResourceRecords": [{"Ref": "IPAddress"}]
+                    },
+                ]
+            },
         },
 
         "AttachGateway": {
@@ -136,6 +140,40 @@ STACK = {
                 "RuleNumber": "101"
             }
         },
+
+        "InboundSMTPNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "false",
+                "NetworkAclId": {"Ref": "NetworkAcl"},
+                "PortRange": {
+                    "From": "25",
+                    "To": "25"
+                },
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "RuleNumber": "102"
+            }
+        },
+
+
+        "InboundHTTPNetworkAclEntry": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "false",
+                "NetworkAclId": {"Ref": "NetworkAcl"},
+                "PortRange": {
+                    "From": "80",
+                    "To": "80"
+                },
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "RuleNumber": "103"
+            }
+        },
+
         "InstanceSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -146,6 +184,12 @@ STACK = {
                         "FromPort": "22",
                         "IpProtocol": "tcp",
                         "ToPort": "22"
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "FromPort": "22",
+                        "IpProtocol": "tcp",
+                        "ToPort": "25"
                     },
                     {
                         "CidrIp": "0.0.0.0/0",

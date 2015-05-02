@@ -1,19 +1,36 @@
 import json
 import pprint
+from time import sleep
 
 import boto
 from fabric.api import task
 from config import STACK_NAME, STACK
 
-@task
-def create_stack():
-    conn = boto.connect_cloudformation()
-    conn.create_stack(STACK_NAME, template_body=json.dumps(STACK))
+
+def existing_stacks(c):
+    return [s.stack_name for s in c.describe_stacks()]
+
+
+def deploy_stack(conn, name, stack):
+    if name not in existing_stacks(conn):
+        conn.create_stack(name, template_body=json.dumps(stack))
+    else:
+        conn.update_stack(name, template_body=json.dumps(stack))
+
+
+def wait_for_stack(conn, name, timeout=10):
+    while True:
+        rv = conn.describe_stacks(name)
+        print rv[0].stack_status
+        if rv[0].stack_status.endswith('_COMPLETE'):
+            break
+        sleep(timeout)
 
 @task
-def update_stack():
+def deploy():
     conn = boto.connect_cloudformation()
-    conn.update_stack(STACK_NAME, template_body=json.dumps(STACK))
+    deploy_stack(conn, STACK_NAME, STACK)
+    wait_for_stack(conn, STACK_NAME)
 
 
 def get_stack_outputs():

@@ -2,7 +2,7 @@ from fabric.api import task
 from fabric.context_managers import settings, cd
 from fabric.contrib.files import exists
 from fabric.contrib.project import rsync_project
-from fabric.operations import sudo
+from fabric.operations import sudo, local
 
 from config import SITE, PROJECT_DIR
 
@@ -12,6 +12,10 @@ NEW = SITE + ".new"
 
 @task
 def backend():
+
+    with cd(PROJECT_DIR):
+        local('grunt')
+
     rsync_project(STAGING, PROJECT_DIR + "/")
 
     if not exists(SITE):

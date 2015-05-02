@@ -3,12 +3,19 @@ from fabric.context_managers import settings
 from fabric.contrib.files import append, exists
 from fabric.operations import put
 
-from config import USER, VIRTUALENV, DATABASE_NAME, BASE_PACKAGES, PIP_PACKAGES, NGINX_CONFIG, UWSGI_CONFIG
+from config import USER, VIRTUALENV, DATABASE_NAME, BASE_PACKAGES, PIP_PACKAGES, NGINX_CONFIG, UWSGI_CONFIG, HOSTNAME, \
+    ADMIN_EMAIL
 
 
 def sysctl(setting):
     if sudo("sysctl -w {0}".format(setting), warn_only=True).succeeded:
         append("/etc/sysctl.conf", setting, use_sudo=True)
+
+
+@task
+def set_hostname():
+    sudo("hostname {}".format(HOSTNAME))
+    sudo("echo {} > /etc/hostname".format(HOSTNAME))
 
 
 def apt_install(packages):
@@ -51,6 +58,23 @@ def install_pip():
 
 
 @task
+def install_postfix():
+    apt_install(["postfix"])
+
+    virtual_alias_domains = "virtual_alias_domains = " + HOSTNAME
+    append("/etc/postfix/main.cf", virtual_alias_domains, use_sudo=True)
+
+    virtual_alias_map = "virtual_alias_maps = hash:/etc/postfix/virtual"
+    append("/etc/postfix/main.cf", virtual_alias_map, use_sudo=True)
+
+    forward_to = "@{} {}".format(HOSTNAME, ADMIN_EMAIL)
+    append("/etc/postfix/virtual", forward_to, use_sudo=True)
+
+    sudo("postmap /etc/postfix/virtual")
+    sudo("service postfix reload")
+
+
+@task
 def install_apt():
     apt_install(BASE_PACKAGES)
 
@@ -85,9 +109,11 @@ def tail_nginx():
 
 @task
 def bootstrap():
+    set_hostname()
     update_system()
     install_ntp()
     install_apt()
+    install_postfix()
     install_pip()
     create_database()
     configure_nginx()
