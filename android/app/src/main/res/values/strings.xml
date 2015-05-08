@@ -52,10 +52,14 @@
     <string name="archive_page_message">This page has been added to your knapsack but not saved successfully. Would you like to saved this page now?</string>
     <string name="archive">Save</string>
     <string name="pref_wifi_only">Save via WiFi only</string>
+    <string name="page_saved">Page saved</string>
+    <string name="page_error">An error occurred while saving the page, please try again</string>
+    <string name="page_loaded">Page loaded</string>
 
     <string-array name="more">
         <item>Open</item>
         <item>Refresh</item>
+        <item>Save</item>
         <item>Delete</item>
     </string-array>
 

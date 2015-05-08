@@ -1,7 +1,11 @@
 package org.quuux.knapsack;
 
+import android.content.Intent;
+import android.util.Patterns;
+
 import java.io.Serializable;
 import java.util.Date;
+import java.util.regex.Matcher;
 
 public class Page implements Serializable {
 
@@ -59,6 +63,28 @@ public class Page implements Serializable {
 
         if (shouldUpdate(this.created, other.created))
             created = other.created;
+    }
+
+    public static Page extractPage(final String text, final String title) {
+        String url = null;
+        final Matcher matcher = Patterns.WEB_URL.matcher(text);
+        while (matcher.find()) {
+            final String nextUrl = matcher.group();
+            if (url == null || nextUrl.length() > url.length())
+                url = nextUrl;
+        }
+
+        if (url == null)
+            return null;
+
+        return new Page(url, title, null);
+    }
+
+    public static Page extractPage(final Intent intent) {
+        return extractPage(
+                intent.getStringExtra(Intent.EXTRA_TEXT),
+                intent.getStringExtra(Intent.EXTRA_SUBJECT)
+        );
     }
 }
 

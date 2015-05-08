@@ -110,7 +110,7 @@ public class PageCache {
         }
 
         final long t2 = System.currentTimeMillis();
-        Log.d(TAG, "scanned %s in %s ms", count, t2-t1);
+        Log.d(TAG, "scanned %s in %s ms", count, t2 - t1);
     }
 
     public Page getPage(final String url) {
@@ -119,6 +119,19 @@ public class PageCache {
 
     public Page getPage(final Page page) {
         return getPage(page.url);
+    }
+
+    public Page ensurePage(final Page page) {
+        Page rv = getPage(page);
+
+        if (rv == null) {
+            rv = loadPage(page);
+            if (rv == null) {
+                rv = commitPage(page);
+            }
+        }
+
+        return rv;
     }
 
     public List<Page> getPages() {

@@ -71,7 +71,8 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
 
     private static final int ITEM_OPEN = 0;
     private static final int ITEM_REFRESH = 1;
-    private static final int ITEM_DELETE = 2;
+    private static final int ITEM_SAVE = 2;
+    private static final int ITEM_DELETE = 3;
 
     private static final long MILLIS_PER_DAY = 86400000;
 
@@ -118,7 +119,6 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
             if (hasSync) {
                 GCMService.register(this, syncAccount);
             }
-
         } else {
             Log.i(TAG, "No valid Google Play Services APK found.");
         }
@@ -373,6 +373,9 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
                     case ITEM_REFRESH:
                         refreshPage(page);
                         break;
+                    case ITEM_SAVE:
+                        savePage(page);
+                        break;
                     case ITEM_DELETE:
                         checkDeletePage(page);
                         break;
@@ -382,6 +385,12 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
             }
         });
         popup.show();
+    }
+
+    private void savePage(final Page page) {
+        final Intent intent = new Intent(this, ArchiveActivity.class);
+        intent.putExtra(ArchiveActivity.EXTRA_PAGE, page);
+        startActivity(intent);
     }
 
     private void checkDeletePage(final Page page) {

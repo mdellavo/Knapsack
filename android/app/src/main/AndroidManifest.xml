@@ -27,9 +27,8 @@
 
         <activity
             android:name=".ArchiveActivity"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.NoDisplay" >
+            android:theme="@style/Theme.AppCompat"
+            >
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 

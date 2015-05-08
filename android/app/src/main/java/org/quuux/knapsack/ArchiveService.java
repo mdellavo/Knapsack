@@ -7,40 +7,20 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.http.SslError;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
-import android.util.Patterns;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
-import android.webkit.GeolocationPermissions;
-import android.webkit.SslErrorHandler;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.StringBufferInputStream;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
 
 public class ArchiveService extends IntentService {
 
@@ -131,57 +110,42 @@ public class ArchiveService extends IntentService {
         GCMBroadcastReceiver.completeWakefulIntent(intent);
     }
 
-    private Page getPage(final Page page) {
-        final PageCache cache = PageCache.getInstance();
-
-        Page rv = cache.getPage(page);
-
-        if (rv == null) {
-            rv = cache.loadPage(page);
-            if (rv == null) {
-                rv = cache.commitPage(page);
-            }
-        }
-
-        return rv;
-    }
-
     private Page getPageFromIntent(final Intent intent) {
         final Page page;
         if (intent.hasExtra(EXTRA_PAGE))
             page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
         else
-            page = extractPage(
-                    intent.getStringExtra(Intent.EXTRA_TEXT),
-                    intent.getStringExtra(Intent.EXTRA_SUBJECT)
-            );
+            page = Page.extractPage(intent);
 
         if (page == null)
             return null;
 
-        return getPage(page);
+        return PageCache.getInstance().ensurePage(page);
     }
 
     private void doArchive(final Intent intent) {
         final Page page = getPageFromIntent(intent);
-        if (page != null) {
-            mArchiving.add(page);
+        if (page == null)
+            return;
 
-            if (isConnected()) {
-                if (!Preferences.wifiOnly(this) || isWifi()) {
-                    final Page result = archivePage(page);
-                    Log.d(TAG, "result: (%s) %s", result.status, result.url);
-                }
+        if (!isConnected())
+            return;
 
-                if (page.uid == null) {
-                    final String authToken = getAuthToken();
-                    if (authToken != null)
-                        API.addPage(authToken, page);
-                }
-            }
+        mArchiving.add(page);
 
-            mArchiving.remove(page);
+        if (!Preferences.wifiOnly(this) || isWifi()) {
+            final Page result = archivePage(page);
+            Log.d(TAG, "result: (%s) %s", result.status, result.url);
         }
+
+        if (page.uid == null) {
+            final String authToken = getAuthToken();
+            if (authToken != null)
+                API.addPage(authToken, page);
+        }
+
+        mArchiving.remove(page);
+
     }
 
     private boolean isConnected() {
@@ -230,8 +194,11 @@ public class ArchiveService extends IntentService {
              final List<Page> pages = API.getPages(authToken);
 
             if (pages != null) {
+
+                final PageCache cache = PageCache.getInstance();
+
                 for (final Page p : pages) {
-                    final Page page = getPage(p);
+                    final Page page = cache.ensurePage(p);
                     if (page.status == Page.STATUS_NEW)
                         archive(this, page);
                 }
@@ -261,20 +228,6 @@ public class ArchiveService extends IntentService {
         sendBroadcast(intent);
     }
 
-    private Page extractPage(final String text, final String title) {
-        String url = null;
-        final Matcher matcher = Patterns.WEB_URL.matcher(text);
-        while (matcher.find()) {
-            final String nextUrl = matcher.group();
-            if (url == null || nextUrl.length() > url.length())
-                url = nextUrl;
-        }
-
-        if (url == null)
-            return null;
-
-        return new Page(url, title, null);
-    }
 
     private Page archivePage(final Page page) {
 
@@ -307,37 +260,6 @@ public class ArchiveService extends IntentService {
         });
     }
 
-    private AsyncTask<Void, Void, Void> saveBitmap(final Page page, final Bitmap bitmap, final File path, final int width, final int height) {
-        return new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(final Void[] params) {
-
-                final Bitmap resized;
-                if (width > 0 || height > 0)
-                    resized = Bitmap.createScaledBitmap(bitmap, width, height, true);
-                else
-                    resized = bitmap;
-
-                try {
-                    FileOutputStream out = new FileOutputStream(path);
-                    resized.compress(Bitmap.CompressFormat.PNG, 90, out);
-                } catch (FileNotFoundException e) {
-                    Log.e(TAG, "error saving bitmap", e);
-                }
-
-
-                return null;
-            }
-
-            @Override
-            protected void onPostExecute(final Void aVoid) {
-                super.onPostExecute(aVoid);
-                broadcastUpdate(page);
-            }
-        }.execute();
-    }
-
-    @SuppressLint("SetJavaScriptEnabled")
     private WebView newWebView() {
         WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         final Display display = wm.getDefaultDisplay();
@@ -348,27 +270,8 @@ public class ArchiveService extends IntentService {
         final WebView view = new WebView(this);
         view.measure(View.MeasureSpec.getSize(width), View.MeasureSpec.getSize(height));
         view.layout(0, 0, width, height);
-        view.setBackgroundColor(getResources().getColor(android.R.color.white));
 
-        final WebSettings settings = view.getSettings();
-        settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-
-        settings.setLoadsImagesAutomatically(true);
-        settings.setAllowFileAccess(true);
-
-        if  (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            settings.setAllowFileAccessFromFileURLs(true);
-            settings.setAllowUniversalAccessFromFileURLs(true);
-        }
-
-        CookieManager.getInstance().setAcceptCookie(true);
-
-        settings.setJavaScriptEnabled(true);
+        ArchiveHelper.configureWebView(view);
 
         return view;
     }
@@ -392,8 +295,7 @@ public class ArchiveService extends IntentService {
         updateNotification(builder.build(), page);
 
         final WebView view = newWebView();
-        view.setWebChromeClient(new WebChromeClient() {
-
+        view.setWebChromeClient(new ArchiveHelper.ArchiveChromeClient(page) {
             @Override
             public void onProgressChanged(final WebView view, final int newProgress) {
                 super.onProgressChanged(view, newProgress);
@@ -401,32 +303,11 @@ public class ArchiveService extends IntentService {
                 builder.setProgress(100, newProgress, false);
                 updateNotification(builder.build(), page);
             }
-
-            @Override
-            public void onReceivedIcon(final WebView view, final Bitmap icon) {
-                super.onReceivedIcon(view, icon);
-                if (icon != null)
-                    saveBitmap(page, icon, CacheManager.getArchivePath(page.url, "favicon.png"), 0, 0);
-            }
-
-            @Override
-            public void onReceivedTitle(final WebView view, final String title) {
-                super.onReceivedTitle(view, title);
-                Log.d(TAG, "got title: %s", title);
-                page.title = title;
-            }
-
-            @Override
-            public void onGeolocationPermissionsShowPrompt(final String origin, final GeolocationPermissions.Callback callback) {
-                super.onGeolocationPermissionsShowPrompt(origin, callback);
-                callback.invoke(origin, false, false);
-            }
         });
 
         final Runnable success = new Runnable() {
             @Override
             public void run() {
-                page.status = Page.STATUS_SUCCESS;
                 terminate(view, builder, page);
             }
         };
@@ -440,45 +321,11 @@ public class ArchiveService extends IntentService {
             }
         };
 
-        view.setWebViewClient(new WebViewClient() {
-
-            private int loadCount = 0;
-
-            @Override
-            public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
-                Log.d(TAG, "override: %s", url);
-                loadCount--;
-                return false;
-            }
-
-            @Override
-            public void onReceivedSslError(final WebView view, @NonNull final SslErrorHandler handler, final SslError error) {
-                super.onReceivedSslError(view, handler, error);
-                Log.d(TAG, "ssl error: %s", error);
-                handler.proceed();
-            }
-
-            @Override
-            public void onPageStarted(final WebView view, final String url, final Bitmap favicon) {
-                super.onPageStarted(view, url, favicon);
-
-                loadCount++;
-
-                Log.d(TAG, "page started:%s: %s", loadCount, url);
-
-                if (favicon != null)
-                    saveBitmap(page, favicon, CacheManager.getArchivePath(url, "favicon.png"), 0, 0);
-            }
-
+        view.setWebViewClient(new ArchiveHelper.ArchiveClient(page) {
             @Override
             public void onPageFinished(final WebView view, final String url) {
                 super.onPageFinished(view, url);
-
-                loadCount--;
-
-                Log.d(TAG, "page finished:%s: %s", loadCount, url);
-
-                if (loadCount > 0)
+                if (isLoading())
                     return;
 
                 builder.setProgress(0, 0, true);
@@ -490,38 +337,11 @@ public class ArchiveService extends IntentService {
                 mHandler.postDelayed(success, 3 * 1000); // give it a little breathing room
             }
 
-            @Override
-            public void onLoadResource(final WebView view, final String url) {
-                super.onLoadResource(view, url);
-                Log.d(TAG, "loading: %s", url);
-            }
-
-            @Override
-            public WebResourceResponse shouldInterceptRequest(final WebView view, final WebResourceRequest request) {
-                return shouldInterceptRequest(view, request.getUrl().toString());
-            }
-
-            @Override
-            public WebResourceResponse shouldInterceptRequest(final WebView view, final String url) {
-
-                Log.d(TAG, "intercept? %s", url);
-
-                final AdBlocker adBlocker = AdBlocker.getInstance();
-
-                if (adBlocker.match(url)) {
-                    Log.d(TAG, "blocking: %s", url);
-                    final InputStream in = new ByteArrayInputStream("".getBytes());
-                    return new WebResourceResponse("text/plain", "utf-8", in);
-                }
-
-                return super.shouldInterceptRequest(view, url);
-            }
 
             @Override
             public void onReceivedError(final WebView view, final int errorCode, final String description, final String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
                 Log.d(TAG, "error (%s) %s @ %s", errorCode, description, failingUrl);
-                page.status = Page.STATUS_ERROR;
                 terminate(view, builder, page);
             }
         });
@@ -535,7 +355,14 @@ public class ArchiveService extends IntentService {
 
     private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page) {
 
-        if (!savePage(page, view)) {
+        final Runnable onComplete = new Runnable() {
+            @Override
+            public void run() {
+                broadcastUpdate(page);
+            }
+        };
+
+        if (!ArchiveHelper.savePage(page, view, onComplete)) {
             page.status = Page.STATUS_ERROR;
         }
         destoryWebView(view);
@@ -574,34 +401,6 @@ public class ArchiveService extends IntentService {
         view.pauseTimers();
         view.onPause();
         view.destroy();
-    }
-
-    private boolean savePage(final Page page, final WebView view) {
-        Log.d(TAG, "saving!");
-
-        final int width = view.getWidth();
-        final int height = view.getHeight();
-
-        boolean rv;
-        try {
-            view.saveWebArchive(CacheManager.getArchivePath(page.url, "index.mht").getPath(), false, new ValueCallback<String>() {
-                @Override
-                public void onReceiveValue(final String value) {
-                    Log.d(TAG, "archive saved: %s", value);
-                }
-            });
-            final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            final Canvas canvas = new Canvas(bitmap);
-            view.draw(canvas);
-
-            saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4);
-            rv = true;
-        } catch(Exception e) {
-            Log.e(TAG, "Error saving page", e);
-            rv = false;
-        }
-
-        return rv;
     }
 
     @Override

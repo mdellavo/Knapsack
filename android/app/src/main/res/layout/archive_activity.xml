@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:animateLayoutChanges="true"
+    >
+
+    <ProgressBar
+        style="?android:attr/progressBarStyleHorizontal"
+        android:id="@+id/progress"
+        android:layout_gravity="center_horizontal|top"
+        android:progress="0"
+        android:max="100"
+        android:indeterminate="false"
+        android:layout_width="match_parent"
+        android:layout_height="10dp"/>
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        />
+
+    <Button
+        android:id="@+id/archive_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/archive"
+        />
+
+</LinearLayout>
