@@ -593,15 +593,17 @@ public class IndexActivity extends ActionBarActivity implements SwipeRefreshLayo
             holder.target = new Target() {
                 @Override
                 public void onBitmapLoaded(final Bitmap bitmap, final Picasso.LoadedFrom from) {
+                    Log.d(TAG, "loaded bitmap %s from %s", bitmap, from);
                     final Palette palette = mPaletteCache.get(page.url);
+                    holder.screenshot.setImageBitmap(bitmap);
                     if (palette != null)
                         color(page, holder, palette);
 
-                    holder.screenshot.setImageBitmap(bitmap);
                 }
 
                 @Override
                 public void onBitmapFailed(final Drawable errorDrawable) {
+                    Log.d(TAG, "screenshot loading failed");
                     loadFavicon(page, holder);
                 }
 

@@ -19,11 +19,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 public class ArchiveHelper {
 
@@ -216,9 +218,11 @@ public class ArchiveHelper {
                     resized = bitmap;
 
                 try {
-                    FileOutputStream out = new FileOutputStream(path);
+                    OutputStream out = new BufferedOutputStream(new FileOutputStream(path));
                     resized.compress(Bitmap.CompressFormat.PNG, 90, out);
-                } catch (FileNotFoundException e) {
+                    out.flush();
+                    out.close();
+                } catch (java.io.IOException e) {
                     Log.e(TAG, "error saving bitmap", e);
                 }
 
@@ -239,9 +243,16 @@ public class ArchiveHelper {
         final int height = view.getHeight();
         final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         final Canvas canvas = new Canvas(bitmap);
-        view.draw(canvas);
 
-        saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4, onComplete);
+        view.post(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "taking snapshot");
+                view.draw(canvas);
+
+                saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4, onComplete);
+            }
+        });
     }
 
     public static void saveFavicon(final Page page, final Bitmap icon, final Runnable onComplete) {

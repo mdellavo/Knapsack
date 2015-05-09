@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
+import android.text.TextUtils;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
@@ -242,6 +243,7 @@ public class ArchiveService extends IntentService {
         try {
             result = mQueue.take();
             PageCache.getInstance().commitPage(page);
+            broadcastUpdate(page);
         } catch (InterruptedException e) {
             Log.e(TAG, "error getting result", e);
         }
@@ -286,7 +288,7 @@ public class ArchiveService extends IntentService {
         final NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder
                 .setContentTitle(getString(R.string.archiving))
-                .setContentText(page.title)
+                .setContentText(getContextText(page))
                 .setSmallIcon(R.drawable.ic_stat_archving)
                 .setContentIntent(pendingIntent)
                 .setNumber(mArchiving.size())
@@ -334,7 +336,7 @@ public class ArchiveService extends IntentService {
                 updateNotification(builder.build(), page);
 
                 mHandler.removeCallbacks(timeout);
-                mHandler.postDelayed(success, 3 * 1000); // give it a little breathing room
+                mHandler.postDelayed(success, 1 * 1000); // give it a little breathing room
             }
 
 
@@ -350,7 +352,7 @@ public class ArchiveService extends IntentService {
         view.resumeTimers();
         view.loadUrl(page.url);
 
-        mHandler.postDelayed(timeout, 600 * 1000);
+        mHandler.postDelayed(timeout, 60 * 1000);
     }
 
     private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page) {
@@ -358,22 +360,24 @@ public class ArchiveService extends IntentService {
         final Runnable onComplete = new Runnable() {
             @Override
             public void run() {
-                broadcastUpdate(page);
+                destoryWebView(view);
+
+                if (page.status == Page.STATUS_SUCCESS)
+                    notifySuccess(builder, page);
+                else if (page.status == Page.STATUS_ERROR)
+                    notifyError(builder, page);
+
+                mQueue.offer(page);
             }
         };
 
         if (!ArchiveHelper.savePage(page, view, onComplete)) {
             page.status = Page.STATUS_ERROR;
+            onComplete.run();
         }
-        destoryWebView(view);
-
-        if (page.status == Page.STATUS_SUCCESS)
-            notifySuccess(builder, page);
-        else if (page.status == Page.STATUS_ERROR)
-            notifyError(builder, page);
-
-        mQueue.offer(page);
     }
+
+
 
     private void updateNotification(final Notification notification, final Page page) {
         final NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -383,7 +387,7 @@ public class ArchiveService extends IntentService {
     private void notifySuccess(final NotificationCompat.Builder builder, final Page page) {
         builder.setProgress(0, 0, false);
         builder.setContentTitle(getString(R.string.archived));
-        builder.setContentText(page.title);
+        builder.setContentText(getContextText(page));
         builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
     }
@@ -391,7 +395,7 @@ public class ArchiveService extends IntentService {
     private void notifyError(final NotificationCompat.Builder builder, final Page page) {
         builder.setProgress(0, 0, false);
         builder.setContentTitle(getString(R.string.archive_error));
-        builder.setContentText(page.title);
+        builder.setContentText(getContextText(page));
         builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
     }
@@ -401,6 +405,10 @@ public class ArchiveService extends IntentService {
         view.pauseTimers();
         view.onPause();
         view.destroy();
+    }
+
+    private String getContextText(final Page page) {
+        return !TextUtils.isEmpty(page.title) ? page.title : page.url;
     }
 
     @Override
