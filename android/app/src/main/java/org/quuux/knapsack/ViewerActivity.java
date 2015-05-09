@@ -36,6 +36,7 @@ public class ViewerActivity extends ActionBarActivity {
     private static final String TAG = Log.buildTag(ViewerActivity.class);
 
     public static final String EXTRA_PAGE = "page";
+    private static final long DIM_TIMEOUT = 500;
 
     private final Handler mHandler = new Handler();
 
@@ -53,6 +54,25 @@ public class ViewerActivity extends ActionBarActivity {
         mPage = PageCache.getInstance().getPage((Page) getIntent().getSerializableExtra(EXTRA_PAGE));
 
         setContentView(R.layout.activity_viewer);
+
+        final View decorView = getWindow().getDecorView();
+        final Runnable dimCallback = new Runnable() {
+            @Override
+            public void run() {
+                dimSystemBars(decorView);
+            }
+        };
+
+       decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+            @Override
+            public void onSystemUiVisibilityChange(int visibility) {
+                decorView.removeCallbacks(dimCallback);
+                decorView.postDelayed(dimCallback, DIM_TIMEOUT);
+            }
+       });
+
+        dimSystemBars(decorView);
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mProgress = (ProgressBar)findViewById(R.id.progress);
@@ -70,6 +90,11 @@ public class ViewerActivity extends ActionBarActivity {
 
         mSavedPosition = Math.max(mSavedPosition, mPage.progress);
         load();
+    }
+
+    private void dimSystemBars(final View decorView) {
+        int uiOptions = View.SYSTEM_UI_FLAG_LOW_PROFILE;
+        decorView.setSystemUiVisibility(uiOptions);
     }
 
     @Override

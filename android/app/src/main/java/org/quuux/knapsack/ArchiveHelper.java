@@ -67,7 +67,7 @@ public class ArchiveHelper {
         @Override
         public void onProgressChanged(final WebView view, final int newProgress) {
             super.onProgressChanged(view, newProgress);
-            Log.d(TAG, "progress: %s", newProgress);
+            //Log.d(TAG, "progress: %s", newProgress);
         }
 
         @Override
@@ -81,7 +81,7 @@ public class ArchiveHelper {
         @Override
         public void onReceivedTitle(final WebView view, final String title) {
             super.onReceivedTitle(view, title);
-            Log.d(TAG, "got title: %s", title);
+            //Log.d(TAG, "got title: %s", title);
             mPage.title = title;
         }
 
@@ -94,14 +94,16 @@ public class ArchiveHelper {
     }
 
     public static boolean savePage(final Page page, final WebView view, final Runnable onComplete) {
-        Log.d(TAG, "saving!");
 
+        final long t1 = System.currentTimeMillis();
+        final String path = CacheManager.getArchivePath(page.url, "index.mht").getPath();
         boolean rv;
         try {
-            view.saveWebArchive(CacheManager.getArchivePath(page.url, "index.mht").getPath(), false, new ValueCallback<String>() {
+            view.saveWebArchive(path, false, new ValueCallback<String>() {
                 @Override
                 public void onReceiveValue(final String value) {
-                    Log.d(TAG, "archive saved: %s", value);
+                    final long t2 = System.currentTimeMillis();
+                    Log.d(TAG, "archive %s -> %s in %sms", path, value, t2-t1);
                     saveScreenshot(page, view, onComplete);
                 }
             });
@@ -125,7 +127,7 @@ public class ArchiveHelper {
 
         @Override
         public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
-            Log.d(TAG, "override: %s", url);
+            //Log.d(TAG, "override: %s", url);
             mLoadClient--;
             return false;
         }
@@ -211,6 +213,8 @@ public class ArchiveHelper {
             @Override
             protected Void doInBackground(final Void[] params) {
 
+                final long t1 = System.currentTimeMillis();
+
                 final Bitmap resized;
                 if (width > 0 || height > 0)
                     resized = Bitmap.createScaledBitmap(bitmap, width, height, true);
@@ -225,6 +229,9 @@ public class ArchiveHelper {
                 } catch (java.io.IOException e) {
                     Log.e(TAG, "error saving bitmap", e);
                 }
+
+                final long t2 = System.currentTimeMillis();
+                Log.d(TAG, "saved bitmap %s in %sms", path, t2-t1);
 
                 return null;
             }

@@ -279,6 +279,8 @@ public class ArchiveService extends IntentService {
     }
 
     private void archive(final Page page) {
+        final long t1 = System.currentTimeMillis();
+
         Log.d(TAG, "archiving: %s", page.url);
 
         final Intent contentIntent = new Intent(this, IndexActivity.class);
@@ -287,7 +289,7 @@ public class ArchiveService extends IntentService {
 
         final NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder
-                .setContentTitle(getString(R.string.archiving))
+                .setContentTitle(mArchiving.size() > 1 ? getString(R.string.archiving_many, mArchiving.size()) : getString(R.string.archiving))
                 .setContentText(getContextText(page))
                 .setSmallIcon(R.drawable.ic_stat_archving)
                 .setContentIntent(pendingIntent)
@@ -301,25 +303,18 @@ public class ArchiveService extends IntentService {
             @Override
             public void onProgressChanged(final WebView view, final int newProgress) {
                 super.onProgressChanged(view, newProgress);
-                Log.d(TAG, "progress: %s", newProgress);
-                builder.setProgress(100, newProgress, false);
+                //Log.d(TAG, "progress: %s", newProgress);
+                builder.setProgress(100, newProgress, false).setContentText(getContextText(page));
                 updateNotification(builder.build(), page);
             }
         });
-
-        final Runnable success = new Runnable() {
-            @Override
-            public void run() {
-                terminate(view, builder, page);
-            }
-        };
 
         final Runnable timeout = new Runnable() {
             @Override
             public void run() {
                 Log.d(TAG, "timeout!");
                 page.status = Page.STATUS_ERROR;
-                terminate(view, builder, page);
+                terminate(view, builder, page, t1);
             }
         };
 
@@ -331,12 +326,14 @@ public class ArchiveService extends IntentService {
                     return;
 
                 builder.setProgress(0, 0, true);
-                builder.setContentTitle(getString(R.string.archiving));
+                builder.setContentTitle(mArchiving.size() > 1 ? getString(R.string.archiving_many, mArchiving.size()) : getString(R.string.archiving));
                 builder.setNumber(mArchiving.size());
                 updateNotification(builder.build(), page);
 
                 mHandler.removeCallbacks(timeout);
-                mHandler.postDelayed(success, 1 * 1000); // give it a little breathing room
+
+                page.status = Page.STATUS_SUCCESS;
+                terminate(view, builder, page, t1);
             }
 
 
@@ -344,7 +341,9 @@ public class ArchiveService extends IntentService {
             public void onReceivedError(final WebView view, final int errorCode, final String description, final String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
                 Log.d(TAG, "error (%s) %s @ %s", errorCode, description, failingUrl);
-                terminate(view, builder, page);
+                page.status = Page.STATUS_ERROR;
+                mHandler.removeCallbacks(timeout);
+                terminate(view, builder, page, t1);
             }
         });
 
@@ -355,7 +354,8 @@ public class ArchiveService extends IntentService {
         mHandler.postDelayed(timeout, 60 * 1000);
     }
 
-    private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page) {
+    private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page, final long t1) {
+
 
         final Runnable onComplete = new Runnable() {
             @Override
@@ -368,6 +368,9 @@ public class ArchiveService extends IntentService {
                     notifyError(builder, page);
 
                 mQueue.offer(page);
+
+                final long t2 = System.currentTimeMillis();
+                Log.d(TAG, "archived %s -> %s in %sms", page.url, page.status, t2-t1);
             }
         };
 
@@ -386,7 +389,7 @@ public class ArchiveService extends IntentService {
 
     private void notifySuccess(final NotificationCompat.Builder builder, final Page page) {
         builder.setProgress(0, 0, false);
-        builder.setContentTitle(getString(R.string.archived));
+        builder.setContentTitle(mArchiving.size() > 0 ? getString(R.string.archived_many, mArchiving.size()) : getString(R.string.archived));
         builder.setContentText(getContextText(page));
         builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
@@ -394,7 +397,7 @@ public class ArchiveService extends IntentService {
 
     private void notifyError(final NotificationCompat.Builder builder, final Page page) {
         builder.setProgress(0, 0, false);
-        builder.setContentTitle(getString(R.string.archive_error));
+        builder.setContentTitle(mArchiving.size() > 0 ? getString(R.string.archive_error_many, mArchiving.size()) : getString(R.string.archive_error));
         builder.setContentText(getContextText(page));
         builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
