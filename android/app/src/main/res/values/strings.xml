@@ -58,6 +58,7 @@
     <string name="archiving_many">Saving page to Knapsack, %s remaining...</string>
     <string name="archived_many">Page saved to Knapsack, %s remaining...</string>
     <string name="archive_error_many">Error saving page to Knapsack, %s remaining</string>
+    <string name="resave_page">Resave page</string>
 
     <string-array name="more">
         <item>Open</item>

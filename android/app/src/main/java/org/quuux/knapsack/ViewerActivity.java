@@ -5,10 +5,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.Paint;
-import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -16,7 +12,13 @@ import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
@@ -42,10 +44,10 @@ public class ViewerActivity extends ActionBarActivity {
 
     private ObservableWebview mContentView;
     private ProgressBar mProgress;
-    private ProgressDrawable mProgressDrawable;
 
     private float mSavedPosition;
     private Page mPage;
+    private Toolbar mToolbar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,17 +65,23 @@ public class ViewerActivity extends ActionBarActivity {
             }
         };
 
-       decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+        decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
             @Override
             public void onSystemUiVisibilityChange(int visibility) {
                 decorView.removeCallbacks(dimCallback);
                 decorView.postDelayed(dimCallback, DIM_TIMEOUT);
             }
-       });
+        });
 
         dimSystemBars(decorView);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        mToolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(mToolbar);
+
+        final ActionBar actionBar = getSupportActionBar();
+        actionBar.setTitle(getPageTitle());
 
         mProgress = (ProgressBar)findViewById(R.id.progress);
         mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
@@ -83,13 +91,15 @@ public class ViewerActivity extends ActionBarActivity {
 
         mProgress.setMax(100);
 
-        mProgressDrawable = new ProgressDrawable();
-
         if (savedInstanceState != null)
             mSavedPosition = savedInstanceState.getFloat("position", 0);
 
         mSavedPosition = Math.max(mSavedPosition, mPage.progress);
         load();
+    }
+
+    private String getPageTitle() {
+        return !TextUtils.isEmpty(mPage.title) ? mPage.title : mPage.url;
     }
 
     private void dimSystemBars(final View decorView) {
@@ -102,6 +112,31 @@ public class ViewerActivity extends ActionBarActivity {
         final float position = calculateProgression(mContentView);
         Log.d(TAG, "saving position %s", position);
         outState.putFloat("position", position);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(final Menu menu) {
+        final MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.viewer_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(final MenuItem item) {
+
+        final boolean rv;
+        switch (item.getItemId()) {
+
+            case R.id.resave_page:
+                rv = true;
+                break;
+
+            default:
+                rv = super.onOptionsItemSelected(item);
+                break;
+        }
+
+        return rv;
     }
 
     private float calculateProgression(WebView content) {
@@ -120,6 +155,8 @@ public class ViewerActivity extends ActionBarActivity {
 
     @SuppressLint("SetJavaScriptEnabled")
     private void initWebView(final WebView view) {
+
+        view.setVerticalScrollBarEnabled(true);
 
         final WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -258,6 +295,9 @@ public class ViewerActivity extends ActionBarActivity {
     }
 
     private void restorePosition() {
+
+        mContentView.setOnScrollChangedListener(null);
+
         final float position = mSavedPosition;
         if (position > 0) {
             Log.d(TAG, "restoring position %s", mSavedPosition);
@@ -267,6 +307,8 @@ public class ViewerActivity extends ActionBarActivity {
             mContentView.scrollTo(0, positionY);
             mSavedPosition = 0 ;
         }
+
+        mContentView.setOnScrollChangedListener(mScrollListener);
     }
 
     private void load() {
@@ -285,59 +327,42 @@ public class ViewerActivity extends ActionBarActivity {
         }
     }
 
+    private void hideActionbar() {
+    }
+
+    private void showActionbar() {
+
+    }
+
     private ObservableWebview.OnScrollChangedListener mScrollListener = new ObservableWebview.OnScrollChangedListener() {
 
-        int scrolled = 0;
+        float current = 1000;
 
         @Override
         public void onScroll(final int l, final int t, final int oldl, final int oldt) {
-            mProgressDrawable.setProgress(calculateProgression(mContentView));
+            final float total = getResources().getDimension(R.dimen.abc_action_bar_default_height_material);
+
+            final int deltaT = (oldt - t) / 4;
+            final boolean animating = deltaT > 0 || deltaT < 0;
+
+            if (animating) {
+                current += deltaT;
+
+                if (current > total)
+                    current = total;
+                else if (current < 0)
+                    current = 0;
+
+                float percent = current / total;
+
+                if (percent > 1)
+                    percent = 1;
+                else if (percent < 0)
+                    percent = 0;
+
+                mToolbar.setAlpha(percent);
+            }
         }
     };
-
-    class ProgressDrawable extends Drawable {
-
-        final Paint mPaint;
-        float progress;
-
-        ProgressDrawable() {
-            mPaint = new Paint();
-            mPaint.setAntiAlias(true);
-            mPaint.setAlpha(255);
-            mPaint.setColor(getResources().getColor(android.R.color.black));
-            mPaint.setTextAlign(Paint.Align.CENTER);
-            mPaint.setTextSize(80);
-            mPaint.setSubpixelText(true);
-        }
-
-        public void setProgress(final float progress) {
-            this.progress = progress;
-            Log.d(TAG, "progress=%s", progress);
-            invalidateSelf();
-        }
-
-        @Override
-        public void draw(final Canvas canvas) {
-            final float cx = canvas.getWidth() / 2f;
-            final float cy = canvas.getHeight() / 2f;
-            final String s = String.format("%s%%", progress * 100);
-            canvas.drawText(s, cx, cy, mPaint);
-        }
-
-        @Override
-        public void setAlpha(final int alpha) {
-            mPaint.setAlpha(alpha);
-        }
-
-        @Override
-        public void setColorFilter(final ColorFilter cf) {
-            mPaint.setColorFilter(cf);
-        }
-
-        @Override
-        public int getOpacity() {
-            return 1 - mPaint.getAlpha();
-        }
-    }
 
 }

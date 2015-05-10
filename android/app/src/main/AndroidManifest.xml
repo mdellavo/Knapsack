@@ -53,7 +53,7 @@
         <activity
             android:name=".ViewerActivity"
             android:label="@string/title_activity_viewer"
-            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:theme="@style/ViewerTheme"
             android:configChanges="orientation"
             >
         </activity>
