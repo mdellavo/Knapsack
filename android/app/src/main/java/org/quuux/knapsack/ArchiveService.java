@@ -349,7 +349,8 @@ public class ArchiveService extends IntentService {
 
         view.onResume();
         view.resumeTimers();
-        view.loadUrl(page.url);
+
+        ArchiveHelper.loadPage(page, view);
 
         mHandler.postDelayed(timeout, 60 * 1000);
     }

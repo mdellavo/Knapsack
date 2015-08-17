@@ -26,6 +26,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ArchiveHelper {
 
@@ -54,6 +56,12 @@ public class ArchiveHelper {
             settings.setJavaScriptEnabled(true);
 
             view.setBackgroundColor(view.getResources().getColor(android.R.color.white));
+    }
+
+    public static void loadPage(final Page page, final WebView view) {
+        final Map<String, String> headers = new HashMap<>();
+        headers.put("Referer", "http://www.google.com/");  // paywall smashie
+        view.loadUrl(page.url);
     }
 
     public static class ArchiveChromeClient extends WebChromeClient {

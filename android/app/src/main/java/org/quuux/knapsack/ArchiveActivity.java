@@ -111,7 +111,7 @@ public class ArchiveActivity extends Activity {
 
         mWebView.onResume();
         mWebView.resumeTimers();
-        mWebView.loadUrl(page.url);
+        ArchiveHelper.loadPage(page, mWebView);
         mLoaded = true;
     }
 

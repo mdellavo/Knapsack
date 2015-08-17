@@ -5,13 +5,19 @@ import android.os.Environment;
 
 import java.io.File;
 
+// FIXME make singleton
 public class CacheManager {
 
     private static final String MANIFEST = "manifest.json";
 
+    private static File root;
+
+    public static void setRoot(final File path) {
+        root = path;
+    }
+
     public static File getArchivePath() {
-        final File base = Environment.getExternalStorageDirectory();
-        return new File(base, "WebArchive");
+        return root;
     }
 
     public static File getArchivePath(final String url) {
