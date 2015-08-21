@@ -1,5 +1,7 @@
 package org.quuux.knapsack;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -14,12 +16,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewPropertyAnimator;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.SslErrorHandler;
@@ -34,7 +39,7 @@ import java.io.File;
 import java.net.MalformedURLException;
 
 
-public class ViewerActivity extends ActionBarActivity {
+public class ViewerActivity extends AppCompatActivity {
     private static final String TAG = Log.buildTag(ViewerActivity.class);
 
     public static final String EXTRA_PAGE = "page";
@@ -87,6 +92,13 @@ public class ViewerActivity extends ActionBarActivity {
         mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
         mContentView.setOnScrollChangedListener(mScrollListener);
 
+        mToolbar.getViewTreeObserver().addOnGlobalFocusChangeListener(new ViewTreeObserver.OnGlobalFocusChangeListener() {
+            @Override
+            public void onGlobalFocusChanged(final View oldFocus, final View newFocus) {
+                mContentView.setTranslationY(mToolbar.getHeight());
+            }
+        });
+
         initWebView(mContentView);
 
         mProgress.setMax(100);
@@ -96,6 +108,25 @@ public class ViewerActivity extends ActionBarActivity {
 
         mSavedPosition = Math.max(mSavedPosition, mPage.progress);
         load();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        mContentView.onResume();
+        mContentView.resumeTimers();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mContentView.pauseTimers();
+        mContentView.onPause();
+
+        mPage.progress = calculateProgression(mContentView);
+        Log.d(TAG, "saving position @ %s", mPage.progress);
+        PageCache.getInstance().commitPage(mPage);
     }
 
     private String getPageTitle() {
@@ -157,6 +188,7 @@ public class ViewerActivity extends ActionBarActivity {
     private void initWebView(final WebView view) {
 
         view.setVerticalScrollBarEnabled(true);
+        view.setNetworkAvailable(false);
 
         final WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -185,6 +217,8 @@ public class ViewerActivity extends ActionBarActivity {
 
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
         settings.setUseWideViewPort(true);
+
+
 
         view.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -276,24 +310,6 @@ public class ViewerActivity extends ActionBarActivity {
         mProgress.setVisibility(state ? View.VISIBLE : View.GONE);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        mContentView.onResume();
-        mContentView.resumeTimers();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        mContentView.pauseTimers();
-        mContentView.onPause();
-
-        mPage.progress = calculateProgression(mContentView);
-        Log.d(TAG, "saving position @ %s", mPage.progress);
-        PageCache.getInstance().commitPage(mPage);
-    }
-
     private void restorePosition() {
 
         mContentView.setOnScrollChangedListener(null);
@@ -327,41 +343,42 @@ public class ViewerActivity extends ActionBarActivity {
         }
     }
 
-    private void hideActionbar() {
-    }
-
-    private void showActionbar() {
-
-    }
-
     private ObservableWebview.OnScrollChangedListener mScrollListener = new ObservableWebview.OnScrollChangedListener() {
 
-        float current = 1000;
+        int max = -1;
+        int translated = 0;
 
         @Override
         public void onScroll(final int l, final int t, final int oldl, final int oldt) {
-            final float total = getResources().getDimension(R.dimen.abc_action_bar_default_height_material);
 
-            final int deltaT = (oldt - t) / 4;
-            final boolean animating = deltaT > 0 || deltaT < 0;
-
-            if (animating) {
-                current += deltaT;
-
-                if (current > total)
-                    current = total;
-                else if (current < 0)
-                    current = 0;
-
-                float percent = current / total;
-
-                if (percent > 1)
-                    percent = 1;
-                else if (percent < 0)
-                    percent = 0;
-
-                mToolbar.setAlpha(percent);
+            if (max < 0) {
+                max = mToolbar.getHeight();
             }
+
+            final int dt = t - oldt;
+            final boolean scrollUp = dt > 0 && translated < max;
+            final boolean scrollDown = dt < 0 && translated > 0;
+
+            if (scrollUp || scrollDown) {
+                translated += dt;
+
+                if (translated > max)
+                    translated = max;
+                else if (translated < 0)
+                    translated = 0;
+
+                final ObjectAnimator[] animations = new ObjectAnimator[] {
+                        ObjectAnimator.ofFloat(mToolbar, "translationY", -translated),
+                        ObjectAnimator.ofFloat(mContentView, "translationY", max - translated),
+                };
+
+                final AnimatorSet animatorSet = new AnimatorSet();
+                animatorSet.playTogether(animations);
+                animatorSet.start();
+
+            }
+
+           // Log.d(TAG, "dt=%s / translated=%s / max=%s", dt, translated, max);
         }
     };
 

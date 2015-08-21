@@ -52,7 +52,6 @@ public class ArchiveService extends IntentService {
         super(ArchiveService.class.getName());
     }
 
-
     public static void sync(final Context context) {
         final Intent intent = new Intent(context, ArchiveService.class);
         intent.setAction(ACTION_SYNC);

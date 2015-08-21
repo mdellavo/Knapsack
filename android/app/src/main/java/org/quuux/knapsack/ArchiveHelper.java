@@ -40,8 +40,10 @@ public class ArchiveHelper {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            WebView.enableSlowWholeDocumentDraw();
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        }
 
         settings.setLoadsImagesAutomatically(true);
         settings.setAllowFileAccess(true);
