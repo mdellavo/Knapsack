@@ -47,22 +47,11 @@ public class Page implements Serializable {
         return String.format("Page(url: %s / uid: %s)", url, uid);
     }
 
-    private boolean shouldUpdate(final Object self, final Object other) {
-        return self == null && other != null;
-    }
-
     public void update(final Page other) {
-        if (shouldUpdate(this.uid, other.uid))
-            uid = other.uid;
-
-        if (shouldUpdate(this.title, other.title))
-            title = other.title;
-
-        if (shouldUpdate(this.url, other.url))
-            url = other.url;
-
-        if (shouldUpdate(this.created, other.created))
-            created = other.created;
+        uid = other.uid;
+        title = other.title;
+        url = other.url;
+        created = other.created;
     }
 
     public static Page extractPage(final String text, final String title) {

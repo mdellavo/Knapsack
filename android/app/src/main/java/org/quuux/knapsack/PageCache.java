@@ -160,13 +160,15 @@ public class PageCache {
         return rv;
     }
 
-    public Page addPage(final Page page) {
+    public Page addPage(Page page) {
 
         final Page existing = getPage(page);
-        if (existing != null)
-            page.update(existing);
-
-        mPages.put(page.url, page);
+        if (existing != null) {
+            existing.update(page);
+            page = existing;
+        } else {
+            mPages.put(page.url, page);
+        }
 
         return page;
     }

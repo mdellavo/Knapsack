@@ -1,7 +1,9 @@
 package org.quuux.knapsack;
 
+import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -23,6 +25,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
@@ -47,12 +50,14 @@ public class ViewerActivity extends AppCompatActivity {
 
     private final Handler mHandler = new Handler();
 
+    private Toolbar mToolbar;
+
     private ObservableWebview mContentView;
+
     private ProgressBar mProgress;
 
-    private float mSavedPosition;
     private Page mPage;
-    private Toolbar mToolbar;
+    private float mSavedPosition;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,24 +89,24 @@ public class ViewerActivity extends AppCompatActivity {
 
         mToolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(mToolbar);
-
-        final ActionBar actionBar = getSupportActionBar();
-        actionBar.setTitle(getPageTitle());
-
-        mProgress = (ProgressBar)findViewById(R.id.progress);
-        mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
-        mContentView.setOnScrollChangedListener(mScrollListener);
-
-        mToolbar.getViewTreeObserver().addOnGlobalFocusChangeListener(new ViewTreeObserver.OnGlobalFocusChangeListener() {
+        mToolbar.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
-            public void onGlobalFocusChanged(final View oldFocus, final View newFocus) {
+            public void onGlobalLayout() {
+                Log.d(TAG, "toolbar = %s", mToolbar.getHeight());
                 mContentView.setTranslationY(mToolbar.getHeight());
             }
         });
 
-        initWebView(mContentView);
+        final ActionBar actionBar = getSupportActionBar();
+        actionBar.setTitle(getPageTitle());
+        actionBar.setSubtitle(getPageSubTitle());
 
+        mProgress = (ProgressBar)findViewById(R.id.progress);
         mProgress.setMax(100);
+
+        mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
+        mContentView.setOnScrollChangedListener(mScrollListener);
+        initWebView(mContentView);
 
         if (savedInstanceState != null)
             mSavedPosition = savedInstanceState.getFloat("position", 0);
@@ -131,6 +136,10 @@ public class ViewerActivity extends AppCompatActivity {
 
     private String getPageTitle() {
         return !TextUtils.isEmpty(mPage.title) ? mPage.title : mPage.url;
+    }
+
+    private String getPageSubTitle() {
+        return !TextUtils.isEmpty(mPage.title) ? mPage.url : null;
     }
 
     private void dimSystemBars(final View decorView) {
@@ -217,8 +226,6 @@ public class ViewerActivity extends AppCompatActivity {
 
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
         settings.setUseWideViewPort(true);
-
-
 
         view.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -344,38 +351,45 @@ public class ViewerActivity extends AppCompatActivity {
     }
 
     private ObservableWebview.OnScrollChangedListener mScrollListener = new ObservableWebview.OnScrollChangedListener() {
-
-        int max = -1;
+        int toolbarHeight = -1;
+        int contentHeight = -1;
         int translated = 0;
 
         @Override
         public void onScroll(final int l, final int t, final int oldl, final int oldt) {
 
-            if (max < 0) {
-                max = mToolbar.getHeight();
+            if (toolbarHeight < 0) {
+                toolbarHeight = mToolbar.getHeight();
+            }
+
+            if (contentHeight < 0) {
+                contentHeight = mContentView.getHeight() + toolbarHeight;
             }
 
             final int dt = t - oldt;
-            final boolean scrollUp = dt > 0 && translated < max;
+            final boolean scrollUp = dt > 0 && translated < mToolbar.getHeight();
             final boolean scrollDown = dt < 0 && translated > 0;
 
             if (scrollUp || scrollDown) {
                 translated += dt;
 
-                if (translated > max)
-                    translated = max;
+                if (translated > mToolbar.getHeight())
+                    translated = mToolbar.getHeight();
                 else if (translated < 0)
                     translated = 0;
 
-                final ObjectAnimator[] animations = new ObjectAnimator[] {
-                        ObjectAnimator.ofFloat(mToolbar, "translationY", -translated),
-                        ObjectAnimator.ofFloat(mContentView, "translationY", max - translated),
-                };
+                mToolbar.setTranslationY(-translated);
 
-                final AnimatorSet animatorSet = new AnimatorSet();
-                animatorSet.playTogether(animations);
-                animatorSet.start();
+                final int contentViewTranslation = toolbarHeight - translated;
+                mContentView.setTranslationY(contentViewTranslation);
 
+                final int newHeight = contentHeight - contentViewTranslation;
+
+//                final ViewGroup.LayoutParams params = mContentView.getLayoutParams();
+//                params.height = newHeight;
+//                mContentView.setLayoutParams(params);
+
+                Log.d(TAG, "contentHeight=%s / newHeight=%s", contentHeight, newHeight);
             }
 
            // Log.d(TAG, "dt=%s / translated=%s / max=%s", dt, translated, max);

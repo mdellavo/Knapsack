@@ -113,7 +113,7 @@ public class ArchiveHelper {
                 @Override
                 public void onReceiveValue(final String value) {
                     final long t2 = System.currentTimeMillis();
-                    Log.d(TAG, "archive %s -> %s in %sms", path, value, t2-t1);
+                    Log.d(TAG, "archive %s -> %s in %sms", path, value, t2 - t1);
                     saveScreenshot(page, view, onComplete);
                 }
             });
@@ -261,15 +261,10 @@ public class ArchiveHelper {
         final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         final Canvas canvas = new Canvas(bitmap);
 
-        view.post(new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "taking snapshot");
-                view.draw(canvas);
+        Log.d(TAG, "taking snapshot");
+        view.draw(canvas);
 
-                saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4, onComplete);
-            }
-        });
+        saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4, onComplete);
     }
 
     public static void saveFavicon(final Page page, final Bitmap icon, final Runnable onComplete) {

@@ -360,6 +360,8 @@ public class ArchiveService extends IntentService {
         final Runnable onComplete = new Runnable() {
             @Override
             public void run() {
+                Log.d(TAG, "archive saved!");
+
                 destoryWebView(view);
 
                 if (page.status == Page.STATUS_SUCCESS)
@@ -367,7 +369,7 @@ public class ArchiveService extends IntentService {
                 else if (page.status == Page.STATUS_ERROR)
                     notifyError(builder, page);
 
-                mQueue.offer(page);
+                mQueue.add(page);
 
                 final long t2 = System.currentTimeMillis();
                 Log.d(TAG, "archived %s -> %s in %sms", page.url, page.status, t2-t1);
