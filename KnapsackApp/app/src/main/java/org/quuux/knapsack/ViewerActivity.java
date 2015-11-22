@@ -168,6 +168,7 @@ public class ViewerActivity extends AppCompatActivity {
         switch (item.getItemId()) {
 
             case R.id.resave_page:
+                savePage(mPage);
                 rv = true;
                 break;
 
@@ -177,6 +178,12 @@ public class ViewerActivity extends AppCompatActivity {
         }
 
         return rv;
+    }
+
+    private void savePage(final Page page) {
+        final Intent intent = new Intent(this, ArchiveActivity.class);
+        intent.putExtra(ArchiveActivity.EXTRA_PAGE, page);
+        startActivity(intent);
     }
 
     private float calculateProgression(WebView content) {
@@ -385,14 +392,8 @@ public class ViewerActivity extends AppCompatActivity {
 
                 final int newHeight = contentHeight - contentViewTranslation;
 
-//                final ViewGroup.LayoutParams params = mContentView.getLayoutParams();
-//                params.height = newHeight;
-//                mContentView.setLayoutParams(params);
-
                 Log.d(TAG, "contentHeight=%s / newHeight=%s", contentHeight, newHeight);
             }
-
-           // Log.d(TAG, "dt=%s / translated=%s / max=%s", dt, translated, max);
         }
     };
 

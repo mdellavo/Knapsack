@@ -1,2 +1,0 @@
-include ':app'
-include ':vendor:Sack:sack'

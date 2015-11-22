@@ -112,7 +112,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         mRecyclerView.setHasFixedSize(true);
 
         final boolean isPortrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
-        mLayoutManager = new StaggeredGridLayoutManager(isPortrait ? 2 : 3, StaggeredGridLayoutManager.VERTICAL); //new GridLayoutManager(this, isPortrait ? 2 : 3);
+        mLayoutManager = new StaggeredGridLayoutManager(isPortrait ? 3 : 4, StaggeredGridLayoutManager.VERTICAL); //new GridLayoutManager(this, isPortrait ? 2 : 3);
         mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.setItemAnimator(new LandingAnimator());
 
@@ -474,7 +474,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             holder.screenshot = (ImageView)view.findViewById(R.id.screenshot);
             holder.favicon = (ImageView)view.findViewById(R.id.favicon);
             holder.more = view.findViewById(R.id.more);
-            holder.created = (TextView) view.findViewById(R.id.created);
             holder.read = (TextView) view.findViewById(R.id.read);
             holder.status = (ImageView)view.findViewById(R.id.status);
             holder.footer = view.findViewById(R.id.footer);
@@ -514,9 +513,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
             resetColors(holder);
             loadScreenshot(page, holder);
-
-            holder.created.setText(page.created != null ? formatCreated(page.created) : null);
-            holder.created.setVisibility(page.created != null ? View.VISIBLE : View.GONE);
 
             holder.read.setText(page.read ? R.string.read : R.string.unread);
             holder.read.setVisibility(page.read ? View.GONE : View.VISIBLE);
@@ -566,22 +562,15 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         private void resetColors(final Holder holder) {
             holder.footer.setBackgroundColor(getResources().getColor(android.R.color.white));
             holder.title.setTextColor(getResources().getColor(android.R.color.black));
-            holder.created.setTextColor(getResources().getColor(android.R.color.black));
         }
 
         private void color(final Page page, final Holder holder, final Palette palette) {
-            List<Palette.Swatch> swatches = palette.getSwatches();
-            if (swatches.size() == 0)
-                return;
 
-            Log.d(TAG, "swatches generated: %s", swatches.size());
-
-            final Palette.Swatch swatch = swatches.get(0);
+            final Palette.Swatch swatch = palette.getLightVibrantSwatch();
 
             try {
                 holder.footer.setBackgroundColor(swatch.getRgb());
                 holder.title.setTextColor(swatch.getTitleTextColor());
-                holder.created.setTextColor(swatch.getBodyTextColor());
             } catch (RuntimeException e) {
                 Log.e(TAG, "error generating palette", e);
             }
@@ -621,7 +610,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
                     source.recycle();
 
                     if (!mPaletteCache.containsKey(page.url)) {
-                        final Palette palette = Palette.generate(rv);
+                        final Palette palette = Palette.from(rv).generate();
                         mPaletteCache.put(page.url, palette);
                     }
 
@@ -635,25 +624,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             };
 
             Picasso.with(IndexActivity.this).load(screenshot).transform(transformation).into(holder.target);
-        }
-
-        private CharSequence formatCreated(final Date created) {
-            final Date now = new Date();
-            final long delta = (now.getTime() - created.getTime()) / MILLIS_PER_DAY;
-
-            final CharSequence rv;
-
-            if (delta == 0) {
-                rv = "Today";
-            } else if (delta == 1) {
-                rv = "Yesterday";
-            } else if (delta < 7) {
-                rv = new SimpleDateFormat("E").format(created);
-            } else {
-                rv = new SimpleDateFormat("M/d").format(created);
-            }
-
-            return rv;
         }
 
         public void update() {
@@ -694,7 +664,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
     class Holder extends RecyclerView.ViewHolder {
         int position;
-        TextView title, created, read;
+        TextView title, read;
         ImageView screenshot, favicon, status;
         View more, footer;
         Target target;

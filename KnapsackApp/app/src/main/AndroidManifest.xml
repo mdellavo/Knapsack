@@ -43,7 +43,7 @@
         </activity>
         <activity
             android:name=".IndexActivity"
-            android:theme="@style/Theme.AppCompat" >
+            android:theme="@style/Theme.Knapsack" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
