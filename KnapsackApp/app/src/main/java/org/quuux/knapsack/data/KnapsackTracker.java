@@ -1,4 +1,4 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.data;
 
 import android.content.Context;
 
@@ -7,6 +7,7 @@ import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.R;
 
 public class KnapsackTracker {
     private static final String TAG = Log.buildTag(KnapsackTracker.class);

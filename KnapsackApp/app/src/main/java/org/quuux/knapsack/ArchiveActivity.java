@@ -16,6 +16,9 @@ import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.common.api.GoogleApiClient;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.Page;
+import org.quuux.knapsack.data.PageCache;
+import org.quuux.knapsack.util.ArchiveHelper;
 
 public class ArchiveActivity extends Activity {
     private static final String TAG = Log.buildTag(ArchiveActivity.class);

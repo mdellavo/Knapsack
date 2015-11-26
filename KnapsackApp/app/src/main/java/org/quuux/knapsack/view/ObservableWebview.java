@@ -1,4 +1,4 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.view;
 
 import android.content.Context;
 import android.util.AttributeSet;

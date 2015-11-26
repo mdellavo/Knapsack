@@ -1,4 +1,4 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.data;
 
 
 import android.content.Context;
@@ -125,10 +125,10 @@ public class API {
 
         try {
             final JSONObject params = new JSONObject();
-            params.put("url", page.url);
+            params.put("url", page.getUrl());
 
-            if (page.uid != null)
-                params.put("uid", page.uid);
+            if (page.getUid() != null)
+                params.put("uid", page.getUid());
 
             final String json = delete(PAGES_URL, params.toString(), authToken);
             final JSONObject resp = new JSONObject(json);

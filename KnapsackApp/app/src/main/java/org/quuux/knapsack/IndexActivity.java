@@ -51,6 +51,12 @@ import com.squareup.picasso.Target;
 import com.squareup.picasso.Transformation;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.API;
+import org.quuux.knapsack.data.CacheManager;
+import org.quuux.knapsack.data.Identity;
+import org.quuux.knapsack.data.KnapsackTracker;
+import org.quuux.knapsack.data.Page;
+import org.quuux.knapsack.data.PageCache;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -203,7 +209,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
     }
 
     public void onPageClick(final Page page) {
-        if (page.status == Page.STATUS_SUCCESS) {
+        if (page.isSuccess()) {
             final Intent intent = new Intent(this, ViewerActivity.class);
             intent.putExtra("page", page);
             startActivity(intent);
@@ -445,14 +451,14 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
     private void refreshPage(final Page page) {
         Intent i = new Intent(this, ArchiveService.class);
         i.setAction(Intent.ACTION_SEND);
-        i.putExtra(Intent.EXTRA_SUBJECT, page.title);
-        i.putExtra(Intent.EXTRA_TEXT, page.url);
+        i.putExtra(Intent.EXTRA_SUBJECT, page.getTitle());
+        i.putExtra(Intent.EXTRA_TEXT, page.getUrl());
         startService(i);
     }
 
     private void openPage(final Page page) {
         Intent i = new Intent(Intent.ACTION_VIEW);
-        i.setData(Uri.parse(page.url));
+        i.setData(Uri.parse(page.getUrl()));
         startActivity(i);
     }
 
@@ -504,7 +510,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             final Page page = getPage(position);
 
             holder.position = position;
-            holder.title.setText(page.title);
+            holder.title.setText(page.getTitle());
 
             holder.screenshot.setImageResource(R.drawable.blank);
             holder.favicon.setImageResource(View.VISIBLE);
@@ -512,11 +518,11 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             resetColors(holder);
             loadScreenshot(page, holder);
 
-            holder.read.setText(page.read ? R.string.read : R.string.unread);
-            holder.read.setVisibility(page.read ? View.GONE : View.VISIBLE);
+            holder.read.setText(page.isRead() ? R.string.read : R.string.unread);
+            holder.read.setVisibility(page.isRead() ? View.GONE : View.VISIBLE);
 
             final boolean isArchiving = ArchiveService.isArchiving(page);
-            final boolean isError = page.status == Page.STATUS_ERROR;
+            final boolean isError = page.isError();
             final boolean statusVisible = isArchiving || isError;
             holder.status.setVisibility(statusVisible ? View.VISIBLE : View.GONE);
 
@@ -546,7 +552,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         private void loadFavicon(final Page page, final Holder holder) {
             holder.favicon.setVisibility(View.VISIBLE);
             holder.screenshot.setImageResource(R.drawable.blank);
-            final File favicon = CacheManager.getArchivePath(page.url, "favicon.png");
+            final File favicon = CacheManager.getArchivePath(page.getUrl(), "favicon.png");
             final Callback fallbackIcon = new Callback.EmptyCallback() {
                 @Override
                 public void onError() {
@@ -577,13 +583,13 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
         private void loadScreenshot(final Page page, final Holder holder) {
             holder.favicon.setVisibility(View.GONE);
-            final File screenshot = CacheManager.getArchivePath(page.url, "screenshot.png");
+            final File screenshot = CacheManager.getArchivePath(page.getUrl(), "screenshot.png");
 
             holder.target = new Target() {
                 @Override
                 public void onBitmapLoaded(final Bitmap bitmap, final Picasso.LoadedFrom from) {
                     Log.d(TAG, "loaded bitmap %s from %s", bitmap, from);
-                    final Palette palette = mPaletteCache.get(page.url);
+                    final Palette palette = mPaletteCache.get(page.getUrl());
                     holder.screenshot.setImageBitmap(bitmap);
                     if (palette != null)
                         color(page, holder, palette);
@@ -608,9 +614,9 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
                     final Bitmap rv = Bitmap.createBitmap(source, 0, 0, source.getWidth(), (int)Math.round(source.getHeight() * .6667));
                     source.recycle();
 
-                    if (!mPaletteCache.containsKey(page.url)) {
+                    if (!mPaletteCache.containsKey(page.getUrl())) {
                         final Palette palette = Palette.from(rv).generate();
-                        mPaletteCache.put(page.url, palette);
+                        mPaletteCache.put(page.getUrl(), palette);
                     }
 
                     return rv;
@@ -618,7 +624,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
                 @Override
                 public String key() {
-                    return page.url;
+                    return page.getUrl();
                 }
             };
 

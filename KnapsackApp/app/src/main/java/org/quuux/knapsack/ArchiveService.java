@@ -1,6 +1,5 @@
 package org.quuux.knapsack;
 
-import android.annotation.SuppressLint;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -9,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -18,11 +16,13 @@ import android.text.TextUtils;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
-import android.webkit.CookieManager;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.API;
+import org.quuux.knapsack.data.Page;
+import org.quuux.knapsack.data.PageCache;
+import org.quuux.knapsack.util.ArchiveHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -137,10 +137,10 @@ public class ArchiveService extends IntentService {
 
         if (!Preferences.wifiOnly(this) || isWifi()) {
             final Page result = archivePage(page);
-            Log.d(TAG, "result: (%s) %s", result.status, result.url);
+            Log.d(TAG, "result: (%s) %s", result.getStatus(), result.getUrl());
         }
 
-        if (page.uid == null) {
+        if (page.getUid() == null) {
             final String authToken = getAuthToken();
             if (authToken != null)
                 API.addPage(authToken, page);
@@ -201,7 +201,7 @@ public class ArchiveService extends IntentService {
 
                 for (final Page p : pages) {
                     final Page page = cache.ensurePage(p);
-                    if (page.status == Page.STATUS_NEW)
+                    if (page.isNew())
                         archive(this, page);
                 }
 
@@ -281,7 +281,7 @@ public class ArchiveService extends IntentService {
     private void archive(final Page page) {
         final long t1 = System.currentTimeMillis();
 
-        Log.d(TAG, "archiving: %s", page.url);
+        Log.d(TAG, "archiving: %s", page.getUrl());
 
         final Intent contentIntent = new Intent(this, IndexActivity.class);
         contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -366,15 +366,15 @@ public class ArchiveService extends IntentService {
 
                 destoryWebView(view);
 
-                if (page.status == Page.STATUS_SUCCESS)
+                if (page.isSuccess())
                     notifySuccess(builder, page);
-                else if (page.status == Page.STATUS_ERROR)
+                else if (page.isError())
                     notifyError(builder, page);
 
                 mQueue.add(page);
 
                 final long t2 = System.currentTimeMillis();
-                Log.d(TAG, "archived %s -> %s in %sms", page.url, page.status, t2-t1);
+                Log.d(TAG, "archived %s -> %s in %sms", page.getUrl(), page.getStatus(), t2-t1);
             }
         };
 
@@ -415,7 +415,7 @@ public class ArchiveService extends IntentService {
     }
 
     private String getContextText(final Page page) {
-        return !TextUtils.isEmpty(page.title) ? page.title : page.url;
+        return page.getDisplayTitle();
     }
 
     @Override

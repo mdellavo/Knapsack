@@ -1,6 +1,7 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.data;
 
 import android.content.Intent;
+import android.text.TextUtils;
 import android.util.Patterns;
 
 import java.io.Serializable;
@@ -13,14 +14,14 @@ public class Page implements Serializable {
     public static final int STATUS_SUCCESS = 1;
     public static final int STATUS_ERROR = -1;
 
-    int status;
-    String uid;
-    String url;
-    String title;
-    Date created;
-    Date lastStatusChange;
-    boolean read;
-    float progress = 0;
+    private int status;
+    private Date lastStatusChange;
+    private String uid;
+    private String url;
+    private String title;
+    private Date created;
+    private boolean read;
+    private float progress = 0;
 
     public Page(final String url, final String title, final String uid) {
         this.url = url;
@@ -40,9 +41,54 @@ public class Page implements Serializable {
         return url.hashCode();
     }
 
+    public String getUrl() {
+        return url;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public Date getCreated() {
+        return created;
+    }
+
+    public boolean isRead() {
+        return read;
+    }
+
+    public float getProgress() {
+        return progress;
+    }
+
     public boolean isKnown() {
         return uid != null;
     }
+
+    public void setStatus(final int status) {
+        this.status = status;
+        this.lastStatusChange = new Date();
+    }
+
+    public void setTitle(final String title) {
+        this.title = title;
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public String getUid() {
+        return uid;
+    }
+
+    public boolean isSuccess() {
+        return status == Page.STATUS_SUCCESS;
+    }
+    public boolean isError() {
+        return status == Page.STATUS_ERROR;
+    }
+
 
     @Override
     public String toString() {
@@ -78,9 +124,20 @@ public class Page implements Serializable {
         );
     }
 
-    public void setStatus(final int status) {
-        this.status = status;
-        this.lastStatusChange = new Date();
+    public void setProgress(final float progress) {
+        this.progress = progress;
+    }
+
+    public String getDisplayTitle() {
+        return !TextUtils.isEmpty(getTitle()) ? getTitle() : getUrl();
+    }
+
+    public void markRead() {
+        this.read = true;
+    }
+
+    public boolean isNew() {
+        return status == Page.STATUS_NEW;
     }
 }
 

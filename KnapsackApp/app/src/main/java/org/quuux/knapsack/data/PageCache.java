@@ -1,4 +1,4 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.data;
 
 
 import android.os.AsyncTask;
@@ -49,7 +49,7 @@ public class PageCache {
     }
 
     public Page loadPage(Page page) {
-        return loadPage(page.url);
+        return loadPage(page.getUrl());
     }
 
     public Page commitPage(final Page page) {
@@ -119,7 +119,7 @@ public class PageCache {
     }
 
     public Page getPage(final Page page) {
-        return getPage(page.url);
+        return getPage(page.getUrl());
     }
 
     public Page ensurePage(final Page page) {
@@ -145,16 +145,16 @@ public class PageCache {
             @Override
             public int compare(final Page lhs, final Page rhs) {
 
-                if (lhs.created == null && rhs.created == null)
+                if (lhs.getCreated() == null && rhs.getCreated() == null)
                     return 0;
 
-                if (lhs.created == null)
+                if (lhs.getCreated() == null)
                     return 1;
 
-                if (rhs.created == null)
+                if (rhs.getCreated() == null)
                     return -1;
 
-                return -lhs.created.compareTo(rhs.created);
+                return -lhs.getCreated().compareTo(rhs.getCreated());
             }
         });
 
@@ -168,10 +168,10 @@ public class PageCache {
             existing.update(page);
             page = existing;
         } else {
-            mPages.put(page.url, page);
+            mPages.put(page.getUrl(), page);
         }
 
-        page.setStatus(page.status);
+        page.setStatus(page.getStatus());
 
         return page;
     }

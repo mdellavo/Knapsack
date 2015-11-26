@@ -1,4 +1,4 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.util;
 
 
 import android.annotation.SuppressLint;
@@ -20,11 +20,13 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.AdBlocker;
+import org.quuux.knapsack.data.CacheManager;
+import org.quuux.knapsack.data.Page;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -65,7 +67,7 @@ public class ArchiveHelper {
     public static void loadPage(final Page page, final WebView view) {
         final Map<String, String> headers = new HashMap<>();
         headers.put("Referer", "http://www.google.com/");  // paywall smashie
-        view.loadUrl(page.url);
+        view.loadUrl(page.getUrl());
     }
 
     public static class ArchiveChromeClient extends WebChromeClient {
@@ -94,7 +96,7 @@ public class ArchiveHelper {
         public void onReceivedTitle(final WebView view, final String title) {
             super.onReceivedTitle(view, title);
             //Log.d(TAG, "got title: %s", title);
-            mPage.title = title;
+            mPage.setTitle(title);
         }
 
         @Override
@@ -108,7 +110,7 @@ public class ArchiveHelper {
     public static boolean savePage(final Page page, final WebView view, final Runnable onComplete) {
 
         final long t1 = System.currentTimeMillis();
-        final String path = CacheManager.getArchivePath(page.url, "index.mht").getPath();
+        final String path = CacheManager.getArchivePath(page.getUrl(), "index.mht").getPath();
         boolean rv;
         try {
             view.saveWebArchive(path, false, new ValueCallback<String>() {
@@ -266,11 +268,11 @@ public class ArchiveHelper {
         Log.d(TAG, "taking snapshot");
         view.draw(canvas);
 
-        saveBitmap(page, bitmap, CacheManager.getArchivePath(page.url, "screenshot.png"), width / 4, height / 4, onComplete);
+        saveBitmap(page, bitmap, CacheManager.getArchivePath(page.getUrl(), "screenshot.png"), width / 4, height / 4, onComplete);
     }
 
     public static void saveFavicon(final Page page, final Bitmap icon, final Runnable onComplete) {
-        saveBitmap(page, icon, CacheManager.getArchivePath(page.url, "favicon.png"), 0, 0, onComplete);
+        saveBitmap(page, icon, CacheManager.getArchivePath(page.getUrl(), "favicon.png"), 0, 0, onComplete);
     }
 
 }

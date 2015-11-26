@@ -1,7 +1,8 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.data;
 
 import android.net.Uri;
-import android.os.Environment;
+
+import org.quuux.knapsack.data.Page;
 
 import java.io.File;
 
@@ -39,15 +40,15 @@ public class CacheManager {
     }
 
     public static File getArchivePath(final Page page) {
-        return getArchivePath(page.url);
+        return getArchivePath(page.getUrl());
     }
 
     public static File getArchivePath(final Page page, final String filename) {
-        return getArchivePath(page.url, filename);
+        return getArchivePath(page.getUrl(), filename);
     }
 
     public static File getManifest(final Page page) {
-        return getArchivePath(page.url, MANIFEST);
+        return getArchivePath(page.getUrl(), MANIFEST);
     }
 
     public static File getManifest(final String url) {

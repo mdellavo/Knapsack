@@ -13,6 +13,7 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.Identity;
 
 import java.util.Collections;
 import java.util.Set;

@@ -1,4 +1,4 @@
-package org.quuux.knapsack;
+package org.quuux.knapsack.data;
 
 
 import android.accounts.AccountManager;
@@ -7,9 +7,12 @@ import android.content.Intent;
 
 import com.google.android.gms.common.AccountPicker;
 
+import org.quuux.knapsack.GCMService;
+import org.quuux.knapsack.Preferences;
+
 public class Identity {
 
-    static final int REQUEST_CODE_PICK_ACCOUNT = 1000;
+    public static final int REQUEST_CODE_PICK_ACCOUNT = 1000;
 
     public static Intent pickUserAccount() {
         final String[] accountTypes = new String[]{"com.google"};

@@ -32,6 +32,10 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.CacheManager;
+import org.quuux.knapsack.data.Page;
+import org.quuux.knapsack.data.PageCache;
+import org.quuux.knapsack.view.ObservableWebview;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -98,7 +102,7 @@ public class ViewerActivity extends AppCompatActivity {
         if (savedInstanceState != null)
             mSavedPosition = savedInstanceState.getFloat("position", 0);
 
-        mSavedPosition = Math.max(mSavedPosition, mPage.progress);
+        mSavedPosition = Math.max(mSavedPosition, mPage.getProgress());
         load();
     }
 
@@ -116,17 +120,17 @@ public class ViewerActivity extends AppCompatActivity {
         mContentView.pauseTimers();
         mContentView.onPause();
 
-        mPage.progress = calculateProgression(mContentView);
-        Log.d(TAG, "saving position @ %s", mPage.progress);
+        mPage.setProgress(calculateProgression(mContentView));
+        Log.d(TAG, "saving position @ %s", mPage.getProgress());
         PageCache.getInstance().commitPage(mPage);
     }
 
     private String getPageTitle() {
-        return !TextUtils.isEmpty(mPage.title) ? mPage.title : mPage.url;
+        return mPage.getDisplayTitle();
     }
 
     private String getPageSubTitle() {
-        return !TextUtils.isEmpty(mPage.title) ? mPage.url : null;
+        return !TextUtils.isEmpty(mPage.getTitle()) ? mPage.getUrl() : null;
     }
 
     private void dimSystemBars(final View decorView) {
@@ -330,15 +334,15 @@ public class ViewerActivity extends AppCompatActivity {
     private void load() {
         Log.d(TAG, "loading: %s", mPage);
 
-        final File file = CacheManager.getArchivePath(mPage.url, "index.mht");
+        final File file = CacheManager.getArchivePath(mPage.getUrl(), "index.mht");
         try {
             mContentView.loadUrl(file.toURI().toURL().toString());
         } catch (MalformedURLException e) {
             Log.e(TAG, "error loading page", e);
         }
 
-        if (!mPage.read) {
-            mPage.read = true;
+        if (!mPage.isRead()) {
+            mPage.markRead();
             PageCache.getInstance().commitAsync(mPage);
         }
     }

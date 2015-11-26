@@ -4,6 +4,7 @@ import android.app.Application;
 import android.net.http.HttpResponseCache;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.CacheManager;
 
 import java.io.File;
 import java.io.IOException;

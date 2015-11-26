@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.API;
 
 import java.io.IOException;
 
