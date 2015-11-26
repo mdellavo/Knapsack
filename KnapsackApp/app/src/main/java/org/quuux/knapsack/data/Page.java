@@ -33,7 +33,7 @@ public class Page implements Serializable {
 
     @Override
     public boolean equals(final Object o) {
-        return o instanceof Page && ((Page)o).url.equals(url);
+        return o instanceof Page && ((Page) o).url.equals(url);
     }
 
     @Override
@@ -66,6 +66,8 @@ public class Page implements Serializable {
     }
 
     public void setStatus(final int status) {
+        if (this.status == status)
+            return;
         this.status = status;
         this.lastStatusChange = new Date();
     }
@@ -85,10 +87,30 @@ public class Page implements Serializable {
     public boolean isSuccess() {
         return status == Page.STATUS_SUCCESS;
     }
+
     public boolean isError() {
         return status == Page.STATUS_ERROR;
     }
 
+    public void setProgress(final float progress) {
+        this.progress = progress;
+    }
+
+    public String getDisplayTitle() {
+        return !TextUtils.isEmpty(getTitle()) ? getTitle() : getUrl();
+    }
+
+    public void markRead() {
+        this.read = true;
+    }
+
+    public boolean isNew() {
+        return status == Page.STATUS_NEW;
+    }
+
+    public Date getlastStatusChange() {
+        return lastStatusChange;
+    }
 
     @Override
     public String toString() {
@@ -122,22 +144,6 @@ public class Page implements Serializable {
                 intent.getStringExtra(Intent.EXTRA_TEXT),
                 intent.getStringExtra(Intent.EXTRA_SUBJECT)
         );
-    }
-
-    public void setProgress(final float progress) {
-        this.progress = progress;
-    }
-
-    public String getDisplayTitle() {
-        return !TextUtils.isEmpty(getTitle()) ? getTitle() : getUrl();
-    }
-
-    public void markRead() {
-        this.read = true;
-    }
-
-    public boolean isNew() {
-        return status == Page.STATUS_NEW;
     }
 }
 

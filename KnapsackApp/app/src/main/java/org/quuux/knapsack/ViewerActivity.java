@@ -39,6 +39,7 @@ import org.quuux.knapsack.view.ObservableWebview;
 
 import java.io.File;
 import java.net.MalformedURLException;
+import java.util.Date;
 
 
 public class ViewerActivity extends AppCompatActivity {
@@ -56,6 +57,7 @@ public class ViewerActivity extends AppCompatActivity {
     private ProgressBar mProgress;
 
     private Page mPage;
+    private Date lastLoad = null;
     private float mSavedPosition;
 
     @Override
@@ -103,7 +105,6 @@ public class ViewerActivity extends AppCompatActivity {
             mSavedPosition = savedInstanceState.getFloat("position", 0);
 
         mSavedPosition = Math.max(mSavedPosition, mPage.getProgress());
-        load();
     }
 
     @Override
@@ -112,6 +113,10 @@ public class ViewerActivity extends AppCompatActivity {
 
         mContentView.onResume();
         mContentView.resumeTimers();
+
+        if (lastLoad == null || lastLoad.before(mPage.getlastStatusChange())) {
+            load();
+        }
     }
 
     @Override
@@ -345,7 +350,7 @@ public class ViewerActivity extends AppCompatActivity {
             mPage.markRead();
             PageCache.getInstance().commitAsync(mPage);
         }
+
+        lastLoad = new Date(mPage.getlastStatusChange().getTime());
     }
-
-
 }
