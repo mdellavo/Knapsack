@@ -89,13 +89,6 @@ public class ViewerActivity extends AppCompatActivity {
 
         mToolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(mToolbar);
-        mToolbar.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                Log.d(TAG, "toolbar = %s", mToolbar.getHeight());
-                mContentView.setTranslationY(mToolbar.getHeight());
-            }
-        });
 
         final ActionBar actionBar = getSupportActionBar();
         actionBar.setTitle(getPageTitle());
@@ -105,7 +98,6 @@ public class ViewerActivity extends AppCompatActivity {
         mProgress.setMax(100);
 
         mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
-        mContentView.setOnScrollChangedListener(mScrollListener);
         initWebView(mContentView);
 
         if (savedInstanceState != null)
@@ -338,7 +330,6 @@ public class ViewerActivity extends AppCompatActivity {
             mSavedPosition = 0 ;
         }
 
-        mContentView.setOnScrollChangedListener(mScrollListener);
     }
 
     private void load() {
@@ -357,44 +348,5 @@ public class ViewerActivity extends AppCompatActivity {
         }
     }
 
-    private ObservableWebview.OnScrollChangedListener mScrollListener = new ObservableWebview.OnScrollChangedListener() {
-        int toolbarHeight = -1;
-        int contentHeight = -1;
-        int translated = 0;
-
-        @Override
-        public void onScroll(final int l, final int t, final int oldl, final int oldt) {
-
-            if (toolbarHeight < 0) {
-                toolbarHeight = mToolbar.getHeight();
-            }
-
-            if (contentHeight < 0) {
-                contentHeight = mContentView.getHeight() + toolbarHeight;
-            }
-
-            final int dt = t - oldt;
-            final boolean scrollUp = dt > 0 && translated < mToolbar.getHeight();
-            final boolean scrollDown = dt < 0 && translated > 0;
-
-            if (scrollUp || scrollDown) {
-                translated += dt;
-
-                if (translated > mToolbar.getHeight())
-                    translated = mToolbar.getHeight();
-                else if (translated < 0)
-                    translated = 0;
-
-                mToolbar.setTranslationY(-translated);
-
-                final int contentViewTranslation = toolbarHeight - translated;
-                mContentView.setTranslationY(contentViewTranslation);
-
-                final int newHeight = contentHeight - contentViewTranslation;
-
-                Log.d(TAG, "contentHeight=%s / newHeight=%s", contentHeight, newHeight);
-            }
-        }
-    };
 
 }

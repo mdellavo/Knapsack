@@ -114,7 +114,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         final boolean isPortrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
         mLayoutManager = new StaggeredGridLayoutManager(isPortrait ? 3 : 4, StaggeredGridLayoutManager.VERTICAL); //new GridLayoutManager(this, isPortrait ? 2 : 3);
         mRecyclerView.setLayoutManager(mLayoutManager);
-        mRecyclerView.setItemAnimator(new LandingAnimator());
+        //mRecyclerView.setItemAnimator(new LandingAnimator());
 
         if (checkPlayServices()) {
             if (hasSync) {
@@ -567,12 +567,13 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         private void color(final Page page, final Holder holder, final Palette palette) {
 
             final Palette.Swatch swatch = palette.getLightVibrantSwatch();
-
-            try {
-                holder.footer.setBackgroundColor(swatch.getRgb());
-                holder.title.setTextColor(swatch.getTitleTextColor());
-            } catch (RuntimeException e) {
-                Log.e(TAG, "error generating palette", e);
+            if (swatch != null) {
+                try {
+                    holder.footer.setBackgroundColor(swatch.getRgb());
+                    holder.title.setTextColor(swatch.getTitleTextColor());
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "error generating palette", e);
+                }
             }
         }
 
