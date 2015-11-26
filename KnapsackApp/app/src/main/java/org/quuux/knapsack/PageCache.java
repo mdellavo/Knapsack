@@ -4,6 +4,7 @@ package org.quuux.knapsack;
 import android.os.AsyncTask;
 import android.util.Pair;
 
+import org.quuux.feller.Log;
 import org.quuux.sack.Sack;
 
 import java.io.File;
@@ -169,6 +170,8 @@ public class PageCache {
         } else {
             mPages.put(page.url, page);
         }
+
+        page.setStatus(page.status);
 
         return page;
     }

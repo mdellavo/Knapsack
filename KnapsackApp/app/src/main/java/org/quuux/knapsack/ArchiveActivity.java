@@ -2,6 +2,7 @@ package org.quuux.knapsack;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
@@ -9,6 +10,12 @@ import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.common.api.GoogleApiClient;
+
+import org.quuux.feller.Log;
 
 public class ArchiveActivity extends Activity {
     private static final String TAG = Log.buildTag(ArchiveActivity.class);
@@ -20,6 +27,11 @@ public class ArchiveActivity extends Activity {
     private ProgressBar mProgress;
     private Button mButton;
     private boolean mLoaded;
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -35,7 +47,7 @@ public class ArchiveActivity extends Activity {
 
         setContentView(R.layout.archive_activity);
 
-        mProgress = (ProgressBar)findViewById(R.id.progress);
+        mProgress = (ProgressBar) findViewById(R.id.progress);
         mProgress.setMax(100);
 
         mButton = (Button) findViewById(R.id.archive_button);
@@ -50,6 +62,9 @@ public class ArchiveActivity extends Activity {
         mWebView = (WebView) findViewById(R.id.webview);
         ArchiveHelper.configureWebView(mWebView);
         loadPage(intent);
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
     private void loadPage(final Intent intent) {
@@ -159,4 +174,43 @@ public class ArchiveActivity extends Activity {
     }
 
 
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.connect();
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Archive Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app deep link URI is correct.
+                Uri.parse("android-app://org.quuux.knapsack/http/host/path")
+        );
+        AppIndex.AppIndexApi.start(client, viewAction);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Archive Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app deep link URI is correct.
+                Uri.parse("android-app://org.quuux.knapsack/http/host/path")
+        );
+        AppIndex.AppIndexApi.end(client, viewAction);
+        client.disconnect();
+    }
 }

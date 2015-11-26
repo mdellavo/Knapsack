@@ -22,6 +22,8 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import org.quuux.feller.Log;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -228,7 +230,6 @@ public class ArchiveService extends IntentService {
         sendBroadcast(intent);
     }
 
-
     private Page archivePage(final Page page) {
 
         mHandler.post(new Runnable() {
@@ -312,7 +313,7 @@ public class ArchiveService extends IntentService {
             @Override
             public void run() {
                 Log.d(TAG, "timeout!");
-                page.status = Page.STATUS_ERROR;
+                page.setStatus(Page.STATUS_ERROR);
                 terminate(view, builder, page, t1);
             }
         };
@@ -331,7 +332,8 @@ public class ArchiveService extends IntentService {
 
                 mHandler.removeCallbacks(timeout);
 
-                page.status = Page.STATUS_SUCCESS;
+                page.setStatus(Page.STATUS_SUCCESS);
+
                 terminate(view, builder, page, t1);
             }
 
@@ -340,7 +342,7 @@ public class ArchiveService extends IntentService {
             public void onReceivedError(final WebView view, final int errorCode, final String description, final String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
                 Log.d(TAG, "error (%s) %s @ %s", errorCode, description, failingUrl);
-                page.status = Page.STATUS_ERROR;
+                page.setStatus(Page.STATUS_ERROR);
                 mHandler.removeCallbacks(timeout);
                 terminate(view, builder, page, t1);
             }
@@ -360,7 +362,7 @@ public class ArchiveService extends IntentService {
         final Runnable onComplete = new Runnable() {
             @Override
             public void run() {
-                Log.d(TAG, "archive saved!");
+                Log.d(TAG, "archive lastStatusChange!");
 
                 destoryWebView(view);
 
@@ -377,7 +379,7 @@ public class ArchiveService extends IntentService {
         };
 
         if (!ArchiveHelper.savePage(page, view, onComplete)) {
-            page.status = Page.STATUS_ERROR;
+            page.setStatus(Page.STATUS_ERROR);
             onComplete.run();
         }
     }

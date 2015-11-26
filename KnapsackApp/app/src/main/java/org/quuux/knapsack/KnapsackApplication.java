@@ -3,6 +3,8 @@ package org.quuux.knapsack;
 import android.app.Application;
 import android.net.http.HttpResponseCache;
 
+import org.quuux.feller.Log;
+
 import java.io.File;
 import java.io.IOException;
 

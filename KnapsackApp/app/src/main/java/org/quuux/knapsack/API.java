@@ -19,6 +19,7 @@ import com.squareup.okhttp.Response;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.quuux.feller.Log;
 
 import java.io.IOException;
 import java.util.List;
@@ -112,9 +113,7 @@ public class API {
             final String body = post(CHECKIN_URL, params.toString(), authToken);
             final JSONObject resp = new JSONObject(body);
             rv = "ok".equals(resp.optString("status"));
-        } catch(IOException e) {
-            Log.e(TAG, "error checking in", e);
-        } catch (JSONException e) {
+        } catch(IOException | JSONException e) {
             Log.e(TAG, "error checking in", e);
         }
 
@@ -135,9 +134,7 @@ public class API {
             final JSONObject resp = new JSONObject(json);
             rv = "ok".equals(resp.optString("status"));
 
-        } catch (JSONException e) {
-            Log.e(TAG, "error deleting page", e);
-        } catch (IOException e) {
+        } catch (JSONException | IOException e) {
             Log.e(TAG, "error deleting page", e);
         }
 

@@ -18,6 +18,7 @@ public class Page implements Serializable {
     String url;
     String title;
     Date created;
+    Date lastStatusChange;
     boolean read;
     float progress = 0;
 
@@ -26,6 +27,7 @@ public class Page implements Serializable {
         this.title = title;
         this.uid = uid;
         this.created = new Date();
+        this.lastStatusChange = new Date();
     }
 
     @Override
@@ -74,6 +76,11 @@ public class Page implements Serializable {
                 intent.getStringExtra(Intent.EXTRA_TEXT),
                 intent.getStringExtra(Intent.EXTRA_SUBJECT)
         );
+    }
+
+    public void setStatus(final int status) {
+        this.status = status;
+        this.lastStatusChange = new Date();
     }
 }
 

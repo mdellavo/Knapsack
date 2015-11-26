@@ -19,6 +19,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.quuux.feller.Log;
+
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -170,7 +172,7 @@ public class ArchiveHelper {
 
             Log.d(TAG, "page finished:%s: %s", mLoadClient, url);
             if (!isLoading()) {
-                mPage.status = Page.STATUS_SUCCESS;
+                mPage.setStatus(Page.STATUS_SUCCESS);
             }
         }
 
@@ -210,7 +212,7 @@ public class ArchiveHelper {
         public void onReceivedError(final WebView view, final int errorCode, final String description, final String failingUrl) {
             super.onReceivedError(view, errorCode, description, failingUrl);
             Log.d(TAG, "error (%s) %s @ %s", errorCode, description, failingUrl);
-            mPage.status = Page.STATUS_ERROR;
+            mPage.setStatus(Page.STATUS_ERROR);
         }
 
         public boolean isLoading() {
@@ -241,7 +243,7 @@ public class ArchiveHelper {
                 }
 
                 final long t2 = System.currentTimeMillis();
-                Log.d(TAG, "saved bitmap %s in %sms", path, t2-t1);
+                Log.d(TAG, "lastStatusChange bitmap %s in %sms", path, t2-t1);
 
                 return null;
             }

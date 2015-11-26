@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.support.v4.content.WakefulBroadcastReceiver;
 
+import org.quuux.feller.Log;
+
 public class GCMBroadcastReceiver extends WakefulBroadcastReceiver {
     private static final String TAG = Log.buildTag(GCMBroadcastReceiver.class);
 

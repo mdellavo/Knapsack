@@ -12,6 +12,8 @@ import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
 
+import org.quuux.feller.Log;
+
 import java.util.Collections;
 import java.util.Set;
 

@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 
 import com.google.android.gms.gcm.GoogleCloudMessaging;
 
+import org.quuux.feller.Log;
+
 import java.io.IOException;
 
 public class GCMService extends IntentService {

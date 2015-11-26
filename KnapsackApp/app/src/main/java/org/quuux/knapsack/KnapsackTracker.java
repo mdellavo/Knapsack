@@ -6,6 +6,8 @@ import com.google.android.gms.analytics.GoogleAnalytics;
 import com.google.android.gms.analytics.HitBuilders;
 import com.google.android.gms.analytics.Tracker;
 
+import org.quuux.feller.Log;
+
 public class KnapsackTracker {
     private static final String TAG = Log.buildTag(KnapsackTracker.class);
     private static KnapsackTracker sTracker;
