@@ -2,6 +2,7 @@ package org.quuux.knapsack.util;
 
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.net.http.SslError;
@@ -18,6 +19,8 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import com.squareup.picasso.Picasso;
 
 import org.quuux.feller.Log;
 import org.quuux.knapsack.data.AdBlocker;
@@ -88,7 +91,7 @@ public class ArchiveHelper {
         public void onReceivedIcon(final WebView view, final Bitmap icon) {
             super.onReceivedIcon(view, icon);
             if (icon != null) {
-                ArchiveHelper.saveFavicon(mPage, icon, null);
+                ArchiveHelper.saveFavicon(view.getContext(), mPage, icon, null);
             }
         }
 
@@ -162,7 +165,7 @@ public class ArchiveHelper {
             Log.d(TAG, "page started:%s: %s", mLoadClient, url);
 
             if (favicon != null) {
-                ArchiveHelper.saveFavicon(mPage, favicon, null);
+                ArchiveHelper.saveFavicon(view.getContext(), mPage, favicon, null);
             }
         }
 
@@ -173,15 +176,12 @@ public class ArchiveHelper {
             mLoadClient--;
 
             Log.d(TAG, "page finished:%s: %s", mLoadClient, url);
-            if (!isLoading()) {
-                mPage.setStatus(Page.STATUS_SUCCESS);
-            }
         }
 
         @Override
         public void onLoadResource(final WebView view, final String url) {
             super.onLoadResource(view, url);
-            Log.d(TAG, "loading: %s", url);
+            //Log.d(TAG, "loading: %s", url);
         }
 
         @Override
@@ -222,7 +222,7 @@ public class ArchiveHelper {
         }
     }
 
-    private static AsyncTask<Void, Void, Void> saveBitmap(final Page page, final Bitmap bitmap, final File path, final int width, final int height, final Runnable onComplete) {
+    private static AsyncTask<Void, Void, Void> saveBitmap(final Context context, final Page page, final Bitmap bitmap, final File path, final int width, final int height, final Runnable onComplete) {
         return new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(final Void[] params) {
@@ -245,7 +245,7 @@ public class ArchiveHelper {
                 }
 
                 final long t2 = System.currentTimeMillis();
-                Log.d(TAG, "lastStatusChange bitmap %s in %sms", path, t2-t1);
+                Log.d(TAG, "saved bitmap %s in %sms", path, t2-t1);
 
                 return null;
             }
@@ -253,6 +253,7 @@ public class ArchiveHelper {
             @Override
             protected void onPostExecute(final Void aVoid) {
                 super.onPostExecute(aVoid);
+                Picasso.with(context).invalidate(path);
                 if (onComplete != null)
                     onComplete.run();
             }
@@ -268,11 +269,11 @@ public class ArchiveHelper {
         Log.d(TAG, "taking snapshot");
         view.draw(canvas);
 
-        saveBitmap(page, bitmap, CacheManager.getArchivePath(page.getUrl(), "screenshot.png"), width / 4, height / 4, onComplete);
+        saveBitmap(view.getContext(), page, bitmap, CacheManager.getArchivePath(page.getUrl(), "screenshot.png"), width / 4, height / 4, onComplete);
     }
 
-    public static void saveFavicon(final Page page, final Bitmap icon, final Runnable onComplete) {
-        saveBitmap(page, icon, CacheManager.getArchivePath(page.getUrl(), "favicon.png"), 0, 0, onComplete);
+    public static void saveFavicon(final Context context, final Page page, final Bitmap icon, final Runnable onComplete) {
+        saveBitmap(context, page, icon, CacheManager.getArchivePath(page.getUrl(), "favicon.png"), 0, 0, onComplete);
     }
 
 }

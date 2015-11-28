@@ -30,11 +30,6 @@ public class ArchiveActivity extends Activity {
     private ProgressBar mProgress;
     private Button mButton;
     private boolean mLoaded;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -65,9 +60,6 @@ public class ArchiveActivity extends Activity {
         mWebView = (WebView) findViewById(R.id.webview);
         ArchiveHelper.configureWebView(mWebView);
         loadPage(intent);
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
     private void loadPage(final Intent intent) {
@@ -159,6 +151,9 @@ public class ArchiveActivity extends Activity {
                 onPageSaved();
             }
         });
+        mPage.setStatus(Page.STATUS_SUCCESS);
+        PageCache.getInstance().commitAsync(mPage);
+
     }
 
     public void onPageSaved() {
@@ -174,46 +169,5 @@ public class ArchiveActivity extends Activity {
         final Intent intent = new Intent(this, ArchiveService.class);
         intent.fillIn(src, 0);
         startService(intent);
-    }
-
-
-    @Override
-    public void onStart() {
-        super.onStart();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Archive Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app deep link URI is correct.
-                Uri.parse("android-app://org.quuux.knapsack/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Archive Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app deep link URI is correct.
-                Uri.parse("android-app://org.quuux.knapsack/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        client.disconnect();
     }
 }

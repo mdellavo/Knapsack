@@ -12,7 +12,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
-import android.text.TextUtils;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
@@ -22,6 +21,8 @@ import org.quuux.feller.Log;
 import org.quuux.knapsack.data.API;
 import org.quuux.knapsack.data.Page;
 import org.quuux.knapsack.data.PageCache;
+import org.quuux.knapsack.event.EventBus;
+import org.quuux.knapsack.event.PageUpdated;
 import org.quuux.knapsack.util.ArchiveHelper;
 
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ public class ArchiveService extends IntentService {
     private final Handler mHandler = new Handler();
     private final BlockingQueue<Page> mQueue = new ArrayBlockingQueue<>(1);
     private ConnectivityManager mConnectivityManager;
+    private static boolean syncing;
 
     public ArchiveService() {
         super(ArchiveService.class.getName());
@@ -74,6 +76,10 @@ public class ArchiveService extends IntentService {
 
     public static boolean isArchiving(final Page page) {
         return mArchiving.contains(page);
+    }
+
+    public static boolean isArchiving() {
+        return mArchiving.size() > 0;
     }
 
     @Override
@@ -148,6 +154,12 @@ public class ArchiveService extends IntentService {
 
         mArchiving.remove(page);
 
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                EventBus.getInstance().post(new PageUpdated());
+            }
+        });
     }
 
     private boolean isConnected() {
@@ -188,6 +200,8 @@ public class ArchiveService extends IntentService {
         if (!isConnected())
             return;
 
+        syncing = true;
+
         Log.d(TAG, "fetching pages...");
 
         final String authToken = getAuthToken();
@@ -211,8 +225,7 @@ public class ArchiveService extends IntentService {
             }
         }
 
-        syncComplete();
-
+        syncing = false;
     }
 
     private String getAuthToken() {
@@ -223,11 +236,6 @@ public class ArchiveService extends IntentService {
         }
 
         return API.getToken(this, account, GCMService.getRegistrationIntent(this, account));
-    }
-
-    private void syncComplete() {
-        final Intent intent = new Intent(ACTION_SYNC_COMPLETE);
-        sendBroadcast(intent);
     }
 
     private Page archivePage(final Page page) {
@@ -242,24 +250,12 @@ public class ArchiveService extends IntentService {
         Page result = null;
         try {
             result = mQueue.take();
-            PageCache.getInstance().commitPage(page);
-            broadcastUpdate(page);
+            result = PageCache.getInstance().commitPage(page);
         } catch (InterruptedException e) {
             Log.e(TAG, "error getting result", e);
         }
 
         return result;
-    }
-
-    private void broadcastUpdate(final Page page) {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                final Intent intent = new Intent(ACTION_ARCHIVE_UPDATE);
-                intent.putExtra(EXTRA_PAGE, page);
-                sendBroadcast(intent);
-            }
-        });
     }
 
     private WebView newWebView() {
@@ -358,7 +354,6 @@ public class ArchiveService extends IntentService {
 
     private void terminate(final WebView view, final NotificationCompat.Builder builder, final Page page, final long t1) {
 
-
         final Runnable onComplete = new Runnable() {
             @Override
             public void run() {
@@ -383,8 +378,6 @@ public class ArchiveService extends IntentService {
             onComplete.run();
         }
     }
-
-
 
     private void updateNotification(final Notification notification, final Page page) {
         final NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -423,4 +416,7 @@ public class ArchiveService extends IntentService {
         return null;
     }
 
+    public static boolean isSyncing() {
+        return syncing;
+    }
 }

@@ -5,6 +5,7 @@ import android.net.http.HttpResponseCache;
 
 import org.quuux.feller.Log;
 import org.quuux.knapsack.data.CacheManager;
+import org.quuux.knapsack.data.PageCache;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,5 +26,7 @@ public class KnapsackApplication extends Application {
         } catch (IOException e) {
             Log.e(TAG, "error setting http cache", e);
         }
+
+        PageCache.getInstance().scanPages();
     }
 }

@@ -5,6 +5,9 @@ import android.os.AsyncTask;
 import android.util.Pair;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.event.EventBus;
+import org.quuux.knapsack.event.PageUpdated;
+import org.quuux.knapsack.event.PagesUpdated;
 import org.quuux.sack.Sack;
 
 import java.io.File;
@@ -21,11 +24,11 @@ public class PageCache {
     private static PageCache instance;
 
     private Map<String, Page> mPages = new HashMap<>();
-    private boolean mScanned = false;
+    private boolean scanning;
 
     protected PageCache() {}
 
-    public Page loadPage(final File manifest) {
+    private Page loadPage(final File manifest) {
         final long t1 = System.currentTimeMillis();
 
         Page rv = null;
@@ -34,7 +37,6 @@ public class PageCache {
             final Pair<Sack.Status, Page> result = store.doLoad();
             if (result.first == Sack.Status.SUCCESS) {
                 rv = result.second;
-                addPage(rv);
             }
         }
 
@@ -44,15 +46,15 @@ public class PageCache {
         return rv;
     }
 
-    public Page loadPage(final String url) {
+    private Page loadPage(final String url) {
         return loadPage(CacheManager.getManifest(url));
     }
 
-    public Page loadPage(Page page) {
+    private Page loadPage(Page page) {
         return loadPage(page.getUrl());
     }
 
-    public Page commitPage(final Page page) {
+    public Page commitPage(Page page) {
 
         final long t1 = System.currentTimeMillis();
 
@@ -62,7 +64,7 @@ public class PageCache {
             if (!parent.mkdirs())
                 Log.e(TAG, "error creating directory: %s", parent);
 
-        addPage(page);
+        page = addPage(page);
 
         Page rv = null;
         final File manifest = CacheManager.getManifest(page);
@@ -73,7 +75,8 @@ public class PageCache {
         }
 
         final long t2 = System.currentTimeMillis();
-        Log.d(TAG, "committed %s in %s ms", manifest.getPath(), t2-t1);
+        Log.d(TAG, "committed %s in %s ms", manifest.getPath(), t2 - t1);
+
         return rv;
     }
 
@@ -88,30 +91,17 @@ public class PageCache {
     }
 
     public void scanPages() {
-        if (mScanned)
-            return;
+        scanning = true;
+        new ScanArchivesTask().execute(CacheManager.getArchivePath());
+    }
 
-        mScanned = true;
+    private void scanningComplete() {
+        scanning = false;
+        EventBus.getInstance().post(new PagesUpdated());
+    }
 
-        final long t1 = System.currentTimeMillis();
-
-        final List<Page> rv = new ArrayList<Page>();
-
-        final File[] files = CacheManager.getArchivePath().listFiles();
-        if (files == null)
-            return;
-
-        int count = 0;
-        for (final File file : files) {
-            final File manifest = new File(file, "manifest.json");
-            if (file.isDirectory() && manifest.isFile()) {
-                loadPage(manifest);
-                count++;
-            }
-        }
-
-        final long t2 = System.currentTimeMillis();
-        Log.d(TAG, "scanned %s in %s ms", count, t2 - t1);
+    public  boolean isLoading() {
+        return scanning;
     }
 
     public Page getPage(final String url) {
@@ -161,7 +151,7 @@ public class PageCache {
         return rv;
     }
 
-    public Page addPage(Page page) {
+    private Page addPage(Page page) {
 
         final Page existing = getPage(page);
         if (existing != null) {
@@ -176,7 +166,7 @@ public class PageCache {
         return page;
     }
 
-    public List<Page> addPages(List<Page> pages) {
+    private List<Page> addPages(List<Page> pages) {
         final List<Page> rv = new ArrayList<>(pages.size());
 
         for (Page page : pages)
@@ -199,6 +189,41 @@ public class PageCache {
             instance = new PageCache();
 
         return instance;
+    }
+
+    class ScanArchivesTask extends AsyncTask<File, Void, List<Page>> {
+
+        @Override
+        protected List<Page> doInBackground(final File... params) {
+            final long t1 = System.currentTimeMillis();
+
+            final List<Page> rv = new ArrayList<>();
+
+            final File[] files = params[0].listFiles();
+            if (files == null)
+                return rv;
+
+            for (final File file : files) {
+                final File manifest = new File(file, "manifest.json");
+                if (file.isDirectory() && manifest.isFile()) {
+                    final Page page = loadPage(manifest);
+                    if (page != null) {
+                        rv.add(page);
+                    }
+                }
+            }
+
+            final long t2 = System.currentTimeMillis();
+            Log.d(TAG, "scanned %s in %s ms", rv.size(), t2 - t1);
+            return rv;
+        }
+
+        @Override
+        protected void onPostExecute(final List<Page> result) {
+            super.onPostExecute(result);
+            addPages(result);
+            scanningComplete();
+        }
     }
 
 }

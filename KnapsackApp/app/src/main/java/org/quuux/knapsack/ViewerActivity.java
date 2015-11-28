@@ -114,6 +114,8 @@ public class ViewerActivity extends AppCompatActivity {
         mContentView.onResume();
         mContentView.resumeTimers();
 
+        Log.d(TAG, "lastload=%s / last status change=%s", lastLoad, mPage.getlastStatusChange());
+
         if (lastLoad == null || lastLoad.before(mPage.getlastStatusChange())) {
             load();
         }
@@ -333,7 +335,6 @@ public class ViewerActivity extends AppCompatActivity {
             mContentView.scrollTo(0, positionY);
             mSavedPosition = 0 ;
         }
-
     }
 
     private void load() {
@@ -351,6 +352,6 @@ public class ViewerActivity extends AppCompatActivity {
             PageCache.getInstance().commitAsync(mPage);
         }
 
-        lastLoad = new Date(mPage.getlastStatusChange().getTime());
+        lastLoad = new Date();
     }
 }

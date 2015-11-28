@@ -3,12 +3,10 @@ package org.quuux.knapsack;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
@@ -45,6 +43,7 @@ import android.widget.TextView;
 import com.android.vending.billing.IInAppBillingService;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.squareup.otto.Subscribe;
 import com.squareup.picasso.Callback;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
@@ -57,6 +56,10 @@ import org.quuux.knapsack.data.Identity;
 import org.quuux.knapsack.data.KnapsackTracker;
 import org.quuux.knapsack.data.Page;
 import org.quuux.knapsack.data.PageCache;
+import org.quuux.knapsack.event.EventBus;
+import org.quuux.knapsack.event.PageUpdated;
+import org.quuux.knapsack.event.PagesUpdated;
+import org.quuux.knapsack.event.StartPurchase;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -66,9 +69,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import jp.wasabeef.recyclerview.animators.adapters.AlphaInAnimationAdapter;
-import jp.wasabeef.recyclerview.animators.adapters.AnimationAdapter;
 
 public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
 
@@ -120,6 +120,9 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         mRecyclerView.setLayoutManager(mLayoutManager);
         //mRecyclerView.setItemAnimator(new LandingAnimator());
 
+        mAdapter = new Adapter();
+        mRecyclerView.setAdapter(mAdapter);
+
         if (checkPlayServices()) {
             if (hasSync) {
                 GCMService.register(this, syncAccount);
@@ -128,13 +131,14 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             Log.i(TAG, "No valid Google Play Services APK found.");
         }
 
-        loadArchives();
         sync();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        EventBus.getInstance().register(this);
 
         final Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
         serviceIntent.setPackage("com.android.vending");
@@ -143,20 +147,18 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         mPurchases = Preferences.getPurchases(this);
         onPurchasesUpdated();
 
-        final IntentFilter filter = new IntentFilter();
-        filter.addAction(ArchiveService.ACTION_ARCHIVE_UPDATE);
-        filter.addAction(ArchiveService.ACTION_SYNC_COMPLETE);
-        filter.addAction(ACTION_PURCHASE);
-        registerReceiver(mReceiver, filter);
-
         checkPlayServices();
+
+        mAdapter.update();
+
+        updateRefreshing();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        EventBus.getInstance().unregister(this);
         unbindService(mServiceConn);
-        unregisterReceiver(mReceiver);
     }
 
     @Override
@@ -200,12 +202,30 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         super.onBackPressed();
     }
 
-    private boolean isUnlocked() {
-        return Preferences.getPurchases(this).contains(SKU_PREMIUM);
+    @Subscribe
+    public void onPagesLoaded(final PagesUpdated event) {
+        mAdapter.update();
+        updateRefreshing();
     }
 
-    private void loadArchives() {
-        new ScanArchivesTask().execute();
+    @Subscribe
+    public void onPageUpdated(final PageUpdated event) {
+        mAdapter.update();
+        updateRefreshing();
+    }
+
+    @Subscribe
+    public void onPurchaseStart(final StartPurchase event) {
+        startPurchase();
+        updateRefreshing();
+    }
+
+    private void updateRefreshing() {
+        mSwipeLayout.setRefreshing(ArchiveService.isSyncing() || PageCache.getInstance().isLoading());
+    }
+
+    private boolean isUnlocked() {
+        return Preferences.getPurchases(this).contains(SKU_PREMIUM);
     }
 
     public void onPageClick(final Page page) {
@@ -348,10 +368,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
     @Override
     public void onRefresh() {
         sync();
-    }
-
-    private void onSyncComplete() {
-        loadArchives();
     }
 
     private void showPopup(final View v, final Page page) {
@@ -588,7 +604,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             holder.target = new Target() {
                 @Override
                 public void onBitmapLoaded(final Bitmap bitmap, final Picasso.LoadedFrom from) {
-                    Log.d(TAG, "loaded bitmap %s from %s", bitmap, from);
+                    //Log.d(TAG, "loaded bitmap %s from %s", bitmap, from);
                     final Palette palette = mPaletteCache.get(page.getUrl());
                     holder.screenshot.setImageBitmap(bitmap);
                     if (palette != null)
@@ -649,7 +665,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             toggleEmptyView();
 
             mAdapter.notifyDataSetChanged();
-            mRecyclerView.getAdapter().notifyDataSetChanged();
+            mSwipeLayout.setRefreshing(false);
         }
 
         public void add(final Page page) {
@@ -679,41 +695,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         }
     }
 
-    class ScanArchivesTask extends AsyncTask<Void, Void, Void> {
-
-        @Override
-        protected Void doInBackground(final Void... params) {
-            PageCache.getInstance().scanPages();
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(final Void result) {
-            super.onPostExecute(result);
-
-            if (mAdapter == null) {
-                mAdapter = new Adapter();
-                final AnimationAdapter adapter = new AlphaInAnimationAdapter(mAdapter);
-                mRecyclerView.setAdapter(adapter);
-            }
-
-            mAdapter.update();
-            mSwipeLayout.setRefreshing(false);
-        }
-    }
-
-    final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(final Context context, final Intent intent) {
-            final String action = intent.getAction();
-
-            if (ArchiveService.ACTION_ARCHIVE_UPDATE.equals(action) || ArchiveService.ACTION_SYNC_COMPLETE.equals(action))
-                loadArchives();
-            else if (ACTION_PURCHASE.equals(action))
-                startPurchase();
-        }
-    };
-
     public static class NagDialog extends DialogFragment {
 
         public NagDialog() {
@@ -742,7 +723,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             button.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(final View v) {
-                    context.sendBroadcast(new Intent(ACTION_PURCHASE));
+                    EventBus.getInstance().post(new StartPurchase());
                 }
             });
 

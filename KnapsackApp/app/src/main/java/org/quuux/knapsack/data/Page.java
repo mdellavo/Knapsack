@@ -66,8 +66,6 @@ public class Page implements Serializable {
     }
 
     public void setStatus(final int status) {
-        if (this.status == status)
-            return;
         this.status = status;
         this.lastStatusChange = new Date();
     }
@@ -122,6 +120,10 @@ public class Page implements Serializable {
         title = other.title;
         url = other.url;
         created = other.created;
+        status = other.status;
+        lastStatusChange = other.lastStatusChange;
+        progress = other.progress;
+        read = other.read;
     }
 
     public static Page extractPage(final String text, final String title) {
