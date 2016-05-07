@@ -181,6 +181,7 @@ public class PageCache {
         CacheManager.delete(page);
         final long t2 = System.currentTimeMillis();
         Log.d(TAG, "deleted %s in %s", CacheManager.getArchivePath(page).getPath(), t2-t1);
+        EventBus.getInstance().post(new PagesUpdated());
     }
 
     public static PageCache getInstance() {
