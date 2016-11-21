@@ -10,11 +10,9 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -33,11 +31,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ListPopupWindow;
 import android.widget.TextView;
 
 import com.android.vending.billing.IInAppBillingService;
@@ -50,7 +45,6 @@ import com.squareup.picasso.Target;
 import com.squareup.picasso.Transformation;
 
 import org.quuux.feller.Log;
-import org.quuux.knapsack.data.API;
 import org.quuux.knapsack.data.CacheManager;
 import org.quuux.knapsack.data.Identity;
 import org.quuux.knapsack.data.KnapsackTracker;
@@ -73,11 +67,6 @@ import java.util.Set;
 public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
 
     private static final String TAG = Log.buildTag(IndexActivity.class);
-
-    private static final int ITEM_OPEN = 0;
-    private static final int ITEM_REFRESH = 1;
-    private static final int ITEM_SAVE = 2;
-    private static final int ITEM_DELETE = 3;
 
     private static final long MILLIS_PER_DAY = 86400000;
 
@@ -243,7 +232,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
                     .setPositiveButton(R.string.archive, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(final DialogInterface dialog, final int which) {
-                            refreshPage(page);
+                            savePage(page);
                         }
                     });
             builder.create().show();
@@ -281,6 +270,12 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
     public void sendEvent(final String category, final String action) {
         sendEvent(category, action, null);
+    }
+
+    private void savePage(final Page page) {
+        final Intent intent = new Intent(this, ArchiveActivity.class);
+        intent.putExtra(ArchiveActivity.EXTRA_PAGE, page);
+        startActivity(intent);
     }
 
     private void showNag(final boolean forced) {
@@ -370,87 +365,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         sync();
     }
 
-    private void showPopup(final View v, final Page page) {
-        final Resources res = v.getContext().getResources();
-
-        final ListPopupWindow popup = new ListPopupWindow(v.getContext());
-        popup.setAnchorView(v);
-        popup.setWidth(res.getDimensionPixelSize(R.dimen.more_row));
-        popup.setAdapter(
-                new ArrayAdapter<String>(
-                        v.getContext(),
-                        android.R.layout.simple_list_item_1,
-                        android.R.id.text1,
-                        res.getStringArray(R.array.more)
-                )
-        );
-        popup.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(final AdapterView<?> parent, final View view, final int position, final long id) {
-                switch (position) {
-                    case ITEM_OPEN:
-                        openPage(page);
-                        break;
-                    case ITEM_REFRESH:
-                        refreshPage(page);
-                        break;
-                    case ITEM_SAVE:
-                        savePage(page);
-                        break;
-                    case ITEM_DELETE:
-                        checkDeletePage(page);
-                        break;
-                }
-
-                popup.dismiss();
-            }
-        });
-        popup.show();
-    }
-
-    private void savePage(final Page page) {
-        final Intent intent = new Intent(this, ArchiveActivity.class);
-        intent.putExtra(ArchiveActivity.EXTRA_PAGE, page);
-        startActivity(intent);
-    }
-
-    private void checkDeletePage(final Page page) {
-        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder
-                .setTitle(R.string.delete_page_title)
-                .setMessage(R.string.delete_page_message)
-                .setCancelable(true)
-                .setNegativeButton(R.string.cancel, null)
-                .setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(final DialogInterface dialog, final int which) {
-                        deletePage(page);
-                    }
-                }).create().show();
-    }
-
-    private void deletePage(final Page page) {
-
-        mAdapter.remove(page);
-
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(final Void... voids) {
-
-                PageCache.getInstance().deletePage(page);
-
-                final String account = Preferences.getSyncAccount(IndexActivity.this);
-
-                if (!account.isEmpty()) {
-                    final String authToken = API.getToken(IndexActivity.this, account,
-                            GCMService.getRegistrationIntent(IndexActivity.this, account));
-                    API.deletePage(authToken, page);
-                }
-
-                return null;
-            }
-        }.execute();
-    }
 
     private void sync() {
         mSwipeLayout.setRefreshing(true);
@@ -462,20 +376,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         mSwipeLayout.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         mEmptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         mEmptyView.loadUrl("file:///android_asset/empty.html");
-    }
-
-    private void refreshPage(final Page page) {
-        Intent i = new Intent(this, ArchiveService.class);
-        i.setAction(Intent.ACTION_SEND);
-        i.putExtra(Intent.EXTRA_SUBJECT, page.getTitle());
-        i.putExtra(Intent.EXTRA_TEXT, page.getUrl());
-        startService(i);
-    }
-
-    private void openPage(final Page page) {
-        Intent i = new Intent(Intent.ACTION_VIEW);
-        i.setData(Uri.parse(page.getUrl()));
-        startActivity(i);
     }
 
     class Adapter extends RecyclerView.Adapter<Holder> {
@@ -493,7 +393,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             holder.title = (TextView)view.findViewById(R.id.title);
             holder.screenshot = (ImageView)view.findViewById(R.id.screenshot);
             holder.favicon = (ImageView)view.findViewById(R.id.favicon);
-            holder.more = view.findViewById(R.id.more);
             holder.read = (TextView) view.findViewById(R.id.read);
             holder.status = (ImageView)view.findViewById(R.id.status);
             holder.footer = view.findViewById(R.id.footer);
@@ -507,13 +406,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
                 }
             });
 
-            holder.more.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(final View v) {
-                    final Page page = mPages.get(holder.getPosition());
-                    showPopup(v, page);
-                }
-            });
             return holder;
         }
 
@@ -687,7 +579,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         int position;
         TextView title, read;
         ImageView screenshot, favicon, status;
-        View more, footer;
+        View footer;
         Target target;
 
         public Holder(final View itemView) {

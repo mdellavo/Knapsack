@@ -2,4 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/resave_page"
           android:title="@string/resave_page" />
+
+    <item android:id="@+id/delete_page"
+          android:title="@string/delete_page" />
+
 </menu>

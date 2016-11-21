@@ -4,16 +4,19 @@ package org.quuux.knapsack;
 import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.http.SslError;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.ActionBar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
@@ -32,6 +35,7 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import org.quuux.feller.Log;
+import org.quuux.knapsack.data.API;
 import org.quuux.knapsack.data.CacheManager;
 import org.quuux.knapsack.data.Page;
 import org.quuux.knapsack.data.PageCache;
@@ -124,12 +128,15 @@ public class ViewerActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+
         mContentView.pauseTimers();
         mContentView.onPause();
 
-        mPage.setProgress(calculateProgression(mContentView));
-        Log.d(TAG, "saving position @ %s", mPage.getProgress());
-        PageCache.getInstance().commitPage(mPage);
+        if (mPage != null) {
+            mPage.setProgress(calculateProgression(mContentView));
+            Log.d(TAG, "saving position @ %s", mPage.getProgress());
+            PageCache.getInstance().commitPage(mPage);
+        }
     }
 
     private String getPageTitle() {
@@ -170,6 +177,11 @@ public class ViewerActivity extends AppCompatActivity {
                 rv = true;
                 break;
 
+            case R.id.delete_page:
+                checkDeletePage(mPage);
+                rv = true;
+                break;
+
             default:
                 rv = super.onOptionsItemSelected(item);
                 break;
@@ -182,6 +194,48 @@ public class ViewerActivity extends AppCompatActivity {
         final Intent intent = new Intent(this, ArchiveActivity.class);
         intent.putExtra(ArchiveActivity.EXTRA_PAGE, page);
         startActivity(intent);
+    }
+
+    private void checkDeletePage(final Page page) {
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder
+                .setTitle(R.string.delete_page_title)
+                .setMessage(R.string.delete_page_message)
+                .setCancelable(true)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(final DialogInterface dialog, final int which) {
+                        deletePage(page);
+                    }
+                }).create().show();
+    }
+
+    private void deletePage(final Page page) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(final Void... voids) {
+
+                PageCache.getInstance().deletePage(page);
+
+                final String account = Preferences.getSyncAccount(ViewerActivity.this);
+
+                if (!account.isEmpty()) {
+                    final String authToken = API.getToken(ViewerActivity.this, account,
+                            GCMService.getRegistrationIntent(ViewerActivity.this, account));
+                    API.deletePage(authToken, page);
+                }
+
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(final Void aVoid) {
+                super.onPostExecute(aVoid);
+                mPage = null;
+                finish();
+            }
+        }.execute();
     }
 
     private float calculateProgression(WebView content) {

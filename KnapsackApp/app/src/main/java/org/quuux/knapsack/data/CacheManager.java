@@ -2,12 +2,15 @@ package org.quuux.knapsack.data;
 
 import android.net.Uri;
 
+import org.quuux.feller.Log;
 import org.quuux.knapsack.data.Page;
 
 import java.io.File;
 
 // FIXME make singleton
 public class CacheManager {
+
+    private static final String TAG = Log.buildTag(CacheManager.class);
 
     private static final String MANIFEST = "manifest.json";
 
@@ -58,8 +61,10 @@ public class CacheManager {
     public static void delete(final Page page) {
         final File dir = getArchivePath(page);
 
-        for (final File file : dir.listFiles())
+        for (final File file : dir.listFiles()) {
+            Log.d(TAG, "deleting file %s", file.getAbsolutePath());
             file.delete();
+        }
 
         dir.delete();
 
