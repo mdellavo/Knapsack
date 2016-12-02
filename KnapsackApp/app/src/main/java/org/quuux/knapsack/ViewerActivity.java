@@ -172,6 +172,11 @@ public class ViewerActivity extends AppCompatActivity {
         final boolean rv;
         switch (item.getItemId()) {
 
+            case R.id.open_source:
+                openSource(mPage);
+                rv = true;
+                break;
+
             case R.id.resave_page:
                 savePage(mPage);
                 rv = true;
@@ -188,6 +193,11 @@ public class ViewerActivity extends AppCompatActivity {
         }
 
         return rv;
+    }
+
+    private void openSource(final Page page) {
+        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(page.getUrl()));
+        startActivity(browserIntent);
     }
 
     private void savePage(final Page page) {
