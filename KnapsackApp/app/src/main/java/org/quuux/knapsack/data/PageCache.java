@@ -6,7 +6,6 @@ import android.util.Pair;
 
 import org.quuux.feller.Log;
 import org.quuux.knapsack.event.EventBus;
-import org.quuux.knapsack.event.PageUpdated;
 import org.quuux.knapsack.event.PagesUpdated;
 import org.quuux.sack.Sack;
 
@@ -17,6 +16,13 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class PageCache {
 
@@ -192,10 +198,26 @@ public class PageCache {
         return instance;
     }
 
+
+    class LoadPageCallable implements Callable<Page> {
+
+        private final File manifest;
+
+        public LoadPageCallable(final File manifest) {
+            this.manifest = manifest;
+        }
+
+        @Override
+        public Page call() throws Exception {
+            return loadPage(manifest);
+        }
+    }
+
     class ScanArchivesTask extends AsyncTask<File, Void, List<Page>> {
 
         @Override
         protected List<Page> doInBackground(final File... params) {
+            final ExecutorService pool = Executors.newFixedThreadPool(2 * Runtime.getRuntime().availableProcessors());
             final long t1 = System.currentTimeMillis();
 
             final List<Page> rv = new ArrayList<>();
@@ -204,18 +226,30 @@ public class PageCache {
             if (files == null)
                 return rv;
 
+            List<LoadPageCallable> calls = new ArrayList<>();
             for (final File file : files) {
                 final File manifest = new File(file, "manifest.json");
                 if (file.isDirectory() && manifest.isFile()) {
-                    final Page page = loadPage(manifest);
-                    if (page != null) {
-                        rv.add(page);
-                    }
+                    LoadPageCallable call = new LoadPageCallable(manifest);
+                    calls.add(call);
                 }
             }
+            try {
+                final List<Future<Page>> futures = pool.invokeAll(calls);
+                pool.shutdown();
 
-            final long t2 = System.currentTimeMillis();
-            Log.d(TAG, "scanned %s in %s ms", rv.size(), t2 - t1);
+                pool.awaitTermination(60, TimeUnit.SECONDS);
+
+                for(Future<Page> future : futures) {
+                    rv.add(future.get());
+                }
+
+                final long t2 = System.currentTimeMillis();
+                Log.d(TAG, "scanned %s in %s ms", rv.size(), t2 - t1);
+            } catch (InterruptedException | ExecutionException e) {
+                Log.e(TAG, "error scanning pages: %s", e);
+            }
+
             return rv;
         }
 
