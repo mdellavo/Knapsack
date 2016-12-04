@@ -3,9 +3,9 @@ package org.quuux.knapsack.data;
 import android.content.Context;
 import android.net.Uri;
 
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.Response;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import org.quuux.feller.Log;
 

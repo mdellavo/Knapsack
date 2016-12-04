@@ -11,11 +11,12 @@ import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.Response;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -67,8 +68,7 @@ public class API {
         final long t1 = System.currentTimeMillis();
         final Response response = client.newCall(request).execute();
         final long t2 = System.currentTimeMillis();
-
-        Log.d(TAG, "%s %s (%sms) -> %s", request.method(), request.urlString(), t2-t1, response.code());
+        Log.d(TAG, "%s %s (%sms) -> %s", request.method(), request.url(), t2-t1, response.code());
 
         return response.body().string();
     }
