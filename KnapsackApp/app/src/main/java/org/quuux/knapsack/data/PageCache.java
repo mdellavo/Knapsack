@@ -183,7 +183,7 @@ public class PageCache {
 
     public void deletePage(final Page page) {
         final long t1 = System.currentTimeMillis();
-        mPages.remove(page);
+        mPages.remove(page.getUrl());
         CacheManager.delete(page);
         final long t2 = System.currentTimeMillis();
         Log.d(TAG, "deleted %s in %s", CacheManager.getArchivePath(page).getPath(), t2-t1);

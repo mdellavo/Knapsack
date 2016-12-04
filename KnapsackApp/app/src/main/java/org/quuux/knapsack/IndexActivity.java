@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -542,15 +543,23 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         public void update() {
             final List<Page> pages = PageCache.getInstance().getPagesSorted();
 
-            for (final Page p: mPages) {
+            Iterator<Page> iterator = mPages.iterator();
+            while (iterator.hasNext()) {
+                final Page p = iterator.next();
                 if (!pages.contains(p)) {
-                    remove(p);
+                    final int position = mPages.indexOf(p);
+                    iterator.remove();
+                    mAdapter.notifyItemRemoved(position);
+                    mRecyclerView.getAdapter().notifyItemInserted(position);
                 }
             }
 
             for (final Page p : pages) {
                 if (!mPages.contains(p)) {
-                    add(p);
+                    mPages.add(p);
+                    final int position = mPages.indexOf(p);
+                    mAdapter.notifyItemInserted(position);
+                    mRecyclerView.getAdapter().notifyItemInserted(position);
                 }
             }
 
@@ -558,20 +567,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
             mAdapter.notifyDataSetChanged();
             mSwipeLayout.setRefreshing(false);
-        }
-
-        public void add(final Page page) {
-            mPages.add(page);
-            final int position = mPages.indexOf(page);
-            mAdapter.notifyItemInserted(position);
-            mRecyclerView.getAdapter().notifyItemInserted(position);
-        }
-
-        public void remove(final Page page) {
-            final int position = mPages.indexOf(page);
-            mPages.remove(page);
-            mAdapter.notifyItemRemoved(position);
-            mRecyclerView.getAdapter().notifyItemInserted(position);
         }
     }
 
