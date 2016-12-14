@@ -47,7 +47,7 @@ public class PageCache {
         }
 
         final long t2 = System.currentTimeMillis();
-        Log.d(TAG, "loaded %s in %s ms", manifest.getPath(), t2-t1);
+        //Log.d(TAG, "loaded %s in %s ms", manifest.getPath(), t2-t1);
 
         return rv;
     }
@@ -217,7 +217,7 @@ public class PageCache {
 
         @Override
         protected List<Page> doInBackground(final File... params) {
-            final ExecutorService pool = Executors.newFixedThreadPool(2 * Runtime.getRuntime().availableProcessors());
+            final ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
             final long t1 = System.currentTimeMillis();
 
             final List<Page> rv = new ArrayList<>();

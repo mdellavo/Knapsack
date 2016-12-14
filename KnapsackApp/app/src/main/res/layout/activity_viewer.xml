@@ -7,8 +7,10 @@
     >
 
     <android.support.design.widget.AppBarLayout
+        android:id="@+id/app_bar"
         android:layout_height="wrap_content"
-        android:layout_width="match_parent">
+        android:layout_width="match_parent"
+        >
 
             <android.support.v7.widget.Toolbar
                 android:id="@+id/toolbar"
@@ -35,22 +37,18 @@
 
     </android.support.design.widget.AppBarLayout>
 
-
-    <android.support.v4.widget.NestedScrollView
+    <org.quuux.knapsack.view.NestedWebView
+        android:id="@+id/fullscreen_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-        <org.quuux.knapsack.view.ObservableWebview
-            android:id="@+id/fullscreen_content"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:keepScreenOn="true"
-            android:textColor="#33b5e5"
-            android:textStyle="bold"
-            android:textSize="50sp"
-            android:gravity="bottom"
-            android:scrollbarSize="5dp"
-            android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
-            />
-    </android.support.v4.widget.NestedScrollView>
+        android:keepScreenOn="true"
+        android:textColor="#33b5e5"
+        android:textStyle="bold"
+        android:textSize="50sp"
+        android:gravity="bottom"
+        android:scrollbarSize="5dp"
+        android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        />
+
 </android.support.design.widget.CoordinatorLayout>

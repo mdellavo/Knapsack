@@ -15,6 +15,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.design.widget.AppBarLayout;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -39,7 +40,7 @@ import org.quuux.knapsack.data.API;
 import org.quuux.knapsack.data.CacheManager;
 import org.quuux.knapsack.data.Page;
 import org.quuux.knapsack.data.PageCache;
-import org.quuux.knapsack.view.ObservableWebview;
+import org.quuux.knapsack.view.NestedWebView;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -55,8 +56,9 @@ public class ViewerActivity extends AppCompatActivity {
     private final Handler mHandler = new Handler();
 
     private Toolbar mToolbar;
+    private AppBarLayout mAppBarLayout;
 
-    private ObservableWebview mContentView;
+    private NestedWebView mContentView;
 
     private ProgressBar mProgress;
 
@@ -92,6 +94,8 @@ public class ViewerActivity extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        mAppBarLayout = (AppBarLayout) findViewById(R.id.app_bar);
+
         mToolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(mToolbar);
 
@@ -102,7 +106,7 @@ public class ViewerActivity extends AppCompatActivity {
         mProgress = (ProgressBar)findViewById(R.id.progress);
         mProgress.setMax(100);
 
-        mContentView = (ObservableWebview) findViewById(R.id.fullscreen_content);
+        mContentView = (NestedWebView) findViewById(R.id.fullscreen_content);
         initWebView(mContentView);
 
         if (savedInstanceState != null)
@@ -133,7 +137,8 @@ public class ViewerActivity extends AppCompatActivity {
         mContentView.onPause();
 
         if (mPage != null) {
-            mPage.setProgress(calculateProgression(mContentView));
+            float progress = calculateProgress(mContentView);
+            mPage.setProgress(progress);
             Log.d(TAG, "saving position @ %s", mPage.getProgress());
             PageCache.getInstance().commitPage(mPage);
         }
@@ -154,7 +159,7 @@ public class ViewerActivity extends AppCompatActivity {
 
     @Override
     public void onSaveInstanceState(final Bundle outState) {
-        final float position = calculateProgression(mContentView);
+        final float position = calculateProgress(mContentView);
         Log.d(TAG, "saving position %s", position);
         outState.putFloat("position", position);
     }
@@ -248,7 +253,7 @@ public class ViewerActivity extends AppCompatActivity {
         }.execute();
     }
 
-    private float calculateProgression(WebView content) {
+    private float calculateProgress(WebView content) {
         float positionTopView = content.getTop();
         float contentHeight = content.getContentHeight();
         float currentScrollPosition = content.getScrollY();
@@ -388,11 +393,10 @@ public class ViewerActivity extends AppCompatActivity {
 
     private void restorePosition() {
 
-        mContentView.setOnScrollChangedListener(null);
-
         final float position = mSavedPosition;
         if (position > 0) {
             Log.d(TAG, "restoring position %s", mSavedPosition);
+
             float webviewsize = mContentView.getContentHeight() - mContentView.getTop();
             float positionInWV = webviewsize * mSavedPosition;
             int positionY = Math.round(mContentView.getTop() + positionInWV);
@@ -418,4 +422,5 @@ public class ViewerActivity extends AppCompatActivity {
 
         lastLoad = new Date();
     }
+
 }
