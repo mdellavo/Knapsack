@@ -401,7 +401,7 @@ public class ViewerActivity extends AppCompatActivity {
             float positionInWV = webviewsize * mSavedPosition;
             int positionY = Math.round(mContentView.getTop() + positionInWV);
             mContentView.scrollTo(0, positionY);
-            mSavedPosition = 0 ;
+            mSavedPosition = 0;
         }
     }
 

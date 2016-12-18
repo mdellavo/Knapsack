@@ -31,7 +31,7 @@ public class API {
 
     public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private static final String API_ROOT = "http://knapsack.quuux.org";
+    private static final String API_ROOT = "https://knapsack.quuux.org";
     private static final String CHECKIN_URL = API_ROOT + "/device_tokens";
     private static final String PAGES_URL = API_ROOT + "/pages";
 
