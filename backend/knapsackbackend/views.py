@@ -1,8 +1,9 @@
 import json
 import datetime
+
+import requests
 from gcm import GCM
 from pyramid.view import view_config
-import requests
 from sqlalchemy import and_, or_
 
 from .models import (
@@ -12,10 +13,6 @@ from .models import (
     DeviceToken
 )
 
-GET = 'GET'
-POST = 'POST'
-PUT = 'PUT'
-DELETE = 'DELETE'
 
 # XXX
 API_KEY = 'AIzaSyBnoToB2rfo1wlkWi8-bbWTB9DPACiKb3Y'
@@ -153,7 +150,8 @@ def notify_devices(user, event_type):
 
 user_pages = lambda user: ok(pages=[page.to_dict() for page in user.active_pages])
 
-@view_config(route_name='pages', renderer='json', request_method=POST)
+
+@view_config(route_name='pages', renderer='json', request_method="POST")
 @validate_auth_token
 def add_page(request, user):
 
@@ -170,7 +168,7 @@ def add_page(request, user):
     return user_pages(user)
 
 
-@view_config(route_name='pages', renderer='json', request_method=PUT)
+@view_config(route_name='pages', renderer='json', request_method="PUT")
 @validate_auth_token
 def add_pages(request, user):
     params = json.loads(request.body)
@@ -199,13 +197,13 @@ def add_pages(request, user):
     return user_pages(user)
 
 
-@view_config(route_name='pages', renderer='json', request_method=GET)
+@view_config(route_name='pages', renderer='json', request_method="GET")
 @validate_auth_token
 def list_pages(request, user):
     return user_pages(user)
 
 
-@view_config(route_name='pages', renderer='json', request_method=DELETE)
+@view_config(route_name='pages', renderer='json', request_method="DELETE")
 @validate_auth_token
 def delete_page(request, user):
 
@@ -225,7 +223,7 @@ def delete_page(request, user):
     return user_pages(user)
 
 
-@view_config(route_name='device_tokens', renderer='json', request_method=POST)
+@view_config(route_name='device_tokens', renderer='json', request_method="POST")
 @validate_auth_token
 def add_device_token(request, user):
 
