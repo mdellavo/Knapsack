@@ -22,9 +22,9 @@ requires = [
     'python-gcm',
     ]
 
-setup(name='knapsack-backend',
+setup(name='knapsack',
       version='0.0',
-      description='knapsack-backend',
+      description='knapsack',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
         "Programming Language :: Python",
@@ -39,12 +39,12 @@ setup(name='knapsack-backend',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
-      test_suite='knapsackbackend',
+      test_suite='knapsack',
       install_requires=requires,
       entry_points="""\
       [paste.app_factory]
-      main = knapsackbackend:main
+      main = knapsack:main
       [console_scripts]
-      initialize_knapsack-backend_db = knapsackbackend.scripts.initializedb:main
+      initialize_knapsack_db = knapsack.scripts.initializedb:main
       """,
       )

@@ -5,8 +5,8 @@ import unittest
 from pyramid.paster import get_appsettings
 from webtest import TestApp as WebTestApp
 
-from knapsackbackend import main
-from knapsackbackend.models import Base, Session
+from knapsack import main
+from knapsack.models import Base, Session
 
 
 class FunctionalTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class TestAuth(FunctionalTests):
                 raise ValueError("bad token")
             return "foo@example.com", 600
 
-        return mock.patch("knapsackbackend.views.check_token", _check_token)
+        return mock.patch("knapsack.views.check_token", _check_token)
 
     def test_auth(self):
         resp = self.app.get("/pages").json

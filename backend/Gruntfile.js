@@ -14,17 +14,17 @@ module.exports = function (grunt) {
 
             dist: {
                 files: {
-                    'knapsackbackend/assets/js/dist/knapsack.js': [
+                    'knapsack/assets/js/dist/knapsack.js': [
                         'bower_components/jquery/dist/jquery.js',
                         'bower_components/bootstrap/dist/js/bootstrap.js',
-                        'knapsackbackend/assets/js/*.js'
+                        'knapsack/assets/js/*.js'
                     ]
                 }
             }
         },
 
         jshint: {
-            all: ['Gruntfile.js', 'knapsackbackend/assets/js/*.js']
+            all: ['Gruntfile.js', 'knapsack/assets/js/*.js']
         },
 
         cssmin: {
@@ -33,10 +33,10 @@ module.exports = function (grunt) {
                     banner: banner
                 },
                 files: {
-                    'knapsackbackend/assets/css/dist/knapsack.css': [
+                    'knapsack/assets/css/dist/knapsack.css': [
                         'bower_components/bootstrap/dist/css/bootstrap.css',
                         'bower_components/bootstrap/dist/css/bootstrap-theme.css',
-                        'knapsackbackend/assets/css/*.css'
+                        'knapsack/assets/css/*.css'
                     ]
                 }
             }
