@@ -1,78 +1,143 @@
 import json
+import time
 import datetime
 
 import requests
 from gcm import GCM
 from pyramid.view import view_config
 from sqlalchemy import and_, or_
+from lockbox.lib import encrypt, decrypt
 
 from .models import (
     Session,
     User,
     Page,
-    DeviceToken
+    DeviceToken,
+    DATETIME_FORMAT
 )
 
 
-# XXX
-API_KEY = 'AIzaSyBnoToB2rfo1wlkWi8-bbWTB9DPACiKb3Y'
-
+COOKIE_NAME = 'a'
 VALIDATION_ENDPOINT = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
-
 EVENT_PAGE_ADD = 'pa'
+SLOP = 10
+PAGE_LIMIT = 50
+
+
+class Token(object):
+    def __init__(self, **kwargs):
+        self.params = {}
+        for k, v in kwargs.items():
+            self.add_item(k, v)
+
+    def add_item(self, k, v):
+        self.params[k] = v
+
+    def update(self, d):
+        self.params.update(d)
+
+    def serialize(self, key):
+        return encrypt(key, json.dumps(self.params, sort_keys=True))
+
+    @classmethod
+    def unserialize(cls, key, s):
+        params = json.loads(decrypt(key, s))
+        return cls(**params)
+
+
+class AuthToken(Token):
+    def __init__(self, email, expires_in, ts):
+        super(AuthToken, self).__init__(em=email, ex=expires_in, ts=ts)
+
+    @property
+    def email(self):
+        return self.params["em"]
+
+    @property
+    def expires_in(self):
+        return self.params["ex"]
+
+    @property
+    def timestamp(self):
+        return self.params["ts"]
+
+    @property
+    def expires_at(self):
+        return self.timestamp + self.expires_in
+
+    @property
+    def is_valid(self):
+        return self.expires_at > time.time()
+
+
+def get_api_key(lockbox):
+    return lockbox.get("gcm_api_key")
+
+
+def get_auth_secret(lockbox):
+    return lockbox.get("auth_secret")
+
+
+def body(d):
+    return {k: v for k, v in d.items() if v}
 
 
 def error(message=None, **kwargs):
     rv = {'status': 'error', 'message': message}
     rv.update(kwargs)
-    return rv
+    return body(rv)
 
 
 def ok(**kwargs):
     rv = {'status': 'ok'}
     rv.update(kwargs)
-    return rv
+    return body(rv)
 
 
 def event(type_, **kwargs):
     rv = {'t': type_}
     rv.update(kwargs)
-    return rv
+    return body(rv)
 
 
-# XXX
-def validate_auth_token_response(user, auth_token, issued_to, expires_in):
-    return True
+def check_token(auth_token):
+    resp = requests.post(VALIDATION_ENDPOINT, params={'access_token': auth_token}).json()
 
+    if resp.get('error'):
+        raise ValueError('invalid auth_token')
 
-# XXX
-def cache_auth_token(user, auth_token, expires_in):
-    pass
+    email = resp.get('email')
+    expires_in = resp.get('expires_in')
+
+    return email, expires_in
 
 
 def validate_auth_token(f):
     def _validate_auth_token(request, *args, **kwargs):
 
-        auth_token = request.headers.get('Auth')
+        token = None
 
-        if not auth_token:
-            return error('invalid auth_token')
+        cookie = request.cookies.get(COOKIE_NAME)
+        if cookie:
+            token = AuthToken.unserialize(get_auth_secret(request.lockbox), cookie)
+            if not token.is_valid:
+                token = None
 
-        resp = requests.post(VALIDATION_ENDPOINT, params={'access_token': auth_token}).json()
+        if not token:
+            auth_token = request.headers.get('Auth')
+            if auth_token:
+                try:
+                    email, expires_in = check_token(auth_token)
+                    token = AuthToken(email, expires_in - SLOP, time.time())
+                except ValueError as e:
+                    return error(str(e))
 
-        if resp.get('error'):
-            return error('invalid auth_token')
+        if not token:
+            return error("no auth")
 
-        # FIXME getting device_token not
-        email = resp.get('email')
-        expires_in = resp.get('expires_in')
-        issued_to = resp.get('issued_to')
+        request.response.set_cookie(COOKIE_NAME, token.serialize(get_auth_secret(request.lockbox)))
 
-        user = find_or_create_user(email)
-        if not validate_auth_token_response(user, auth_token, issued_to, expires_in):
-            return error('invalid auth_token')
-
-        cache_auth_token(user, auth_token, expires_in)
+        user = find_or_create_user(token.email)
 
         return f(request, user, *args, **kwargs)
 
@@ -120,13 +185,13 @@ def find_or_create_device_token(user, token, model=None):
     return device_token
 
 
-def notify_devices(user, event_type):
+def notify_devices(api_key, user, event_type):
 
     tokens = [device_token.token for device_token in user.active_device_tokens]
     if not tokens:
         return
 
-    gcm = GCM(API_KEY)
+    gcm = GCM(api_key)
     resp = gcm.json_request(registration_ids=tokens, data=event(event_type))
 
     if 'errors' in resp:
@@ -148,7 +213,19 @@ def notify_devices(user, event_type):
             )
             Session.query(DeviceToken).filter(query).update({'token': canonical_id})
 
-user_pages = lambda user: ok(pages=[page.to_dict() for page in user.active_pages])
+
+def user_pages_response(user, before=None, limit=PAGE_LIMIT):
+    pages = user.active_pages.limit(limit + 1)
+    if before:
+        pages = pages.filter(Page.created < before)
+
+    pages = list(pages)
+    before = None
+    if len(pages) > limit:
+        pages = pages[:-1]
+        before = pages[-1].created
+
+    return ok(pages=[page.to_dict() for page in pages], before=before)
 
 
 @view_config(route_name='pages', renderer='json', request_method="POST")
@@ -162,10 +239,9 @@ def add_page(request, user):
 
     find_or_create_page(user, params['page']['url'])
 
-    # FIXME move off to work queue
-    notify_devices(user, EVENT_PAGE_ADD)
+    notify_devices(get_api_key(request.lockbox), user, EVENT_PAGE_ADD)
 
-    return user_pages(user)
+    return ok()
 
 
 @view_config(route_name='pages', renderer='json', request_method="PUT")
@@ -194,13 +270,18 @@ def add_pages(request, user):
     missing_pages = [make_page(page) for page in pages if page['url'] in missing_urls]
     Session.add_all(missing_pages)
 
-    return user_pages(user)
+    return ok()
+
+
+def parse_datetime(s):
+    return datetime.datetime.strptime(s, DATETIME_FORMAT) if s else None
 
 
 @view_config(route_name='pages', renderer='json', request_method="GET")
 @validate_auth_token
 def list_pages(request, user):
-    return user_pages(user)
+    before = parse_datetime(request.params.get("before"))
+    return user_pages_response(user, before=before)
 
 
 @view_config(route_name='pages', renderer='json', request_method="DELETE")
@@ -220,7 +301,7 @@ def delete_page(request, user):
     criteria = and_(Page.user == user, or_(*parts))
     Session.query(Page).filter(criteria).update({'deleted': True})
 
-    return user_pages(user)
+    return ok()
 
 
 @view_config(route_name='device_tokens', renderer='json', request_method="POST")

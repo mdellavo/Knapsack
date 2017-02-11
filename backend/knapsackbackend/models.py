@@ -1,23 +1,16 @@
 import datetime
 import uuid
-from sqlalchemy import (
-    Column,
-    Integer,
-    String, DateTime,
-    ForeignKey, Boolean
-)
 
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-
-from sqlalchemy.orm import (
-    scoped_session,
-    sessionmaker,
-    relationship)
-
+from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from zope.sqlalchemy import ZopeTransactionExtension
+
 
 Session = scoped_session(sessionmaker(expire_on_commit=False, extension=ZopeTransactionExtension()))
 Base = declarative_base()
+
+DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
 
 
 class DeviceToken(Base):
@@ -49,7 +42,7 @@ class Page(Base):
             'uid': self.uid,
             'url': self.url,
             'title': self.title,
-            'created': self.created.strftime('%Y-%m-%dT%H:%M:%S.%f'),
+            'created': self.created.strftime(DATETIME_FORMAT),
             'read': self.read
         }
 

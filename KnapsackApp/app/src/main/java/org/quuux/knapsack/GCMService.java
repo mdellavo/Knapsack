@@ -57,12 +57,12 @@ public class GCMService extends IntentService {
                 }
 
                 final Intent callback = GCMService.getRegistrationIntent(this, account);
-                final String authToken = API.getToken(this, account, callback);
+                final String authToken = API.getInstance().getToken(this, account, callback);
 
                 if (!isEmpty(registrationId) & !isEmpty(authToken)) {
                     Log.d(TAG, "registered, checking in...");
 
-                    if (API.checkin(authToken, registrationId)) {
+                    if (API.getInstance().checkin(authToken, registrationId)) {
                         Log.d(TAG, "registration complete!");
                         Preferences.setRegistrationId(this, registrationId, currentVersion);
                     }

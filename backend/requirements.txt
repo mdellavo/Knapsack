@@ -1,3 +1,4 @@
+paste
 pyramid
 pyramid_chameleon
 pyramid_debugtoolbar
@@ -9,3 +10,8 @@ zope.sqlalchemy
 waitress
 psycopg2
 python-gcm
+git+git://github.com/mdellavo/lockbox.git@master
+WebTest
+pytest
+pytest-cov
+mock

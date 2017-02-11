@@ -149,7 +149,7 @@ public class ArchiveService extends IntentService {
         if (page.getUid() == null) {
             final String authToken = getAuthToken();
             if (authToken != null)
-                API.addPage(authToken, page);
+                API.getInstance().addPage(authToken, page);
         }
 
         mArchiving.remove(page);
@@ -184,7 +184,7 @@ public class ArchiveService extends IntentService {
         }
 
         if (localPages.size() > 0) {
-            API.setPages(authToken, localPages);
+            API.getInstance().setPages(authToken, localPages);
         }
     }
 
@@ -207,7 +207,7 @@ public class ArchiveService extends IntentService {
         final String authToken = getAuthToken();
 
         if (authToken != null) {
-             final List<Page> pages = API.getPages(authToken);
+             final List<Page> pages = API.getInstance().getAllPages(authToken);
 
             if (pages != null) {
 
@@ -235,7 +235,7 @@ public class ArchiveService extends IntentService {
             return null;
         }
 
-        return API.getToken(this, account, GCMService.getRegistrationIntent(this, account));
+        return API.getInstance().getToken(this, account, GCMService.getRegistrationIntent(this, account));
     }
 
     private Page archivePage(final Page page) {

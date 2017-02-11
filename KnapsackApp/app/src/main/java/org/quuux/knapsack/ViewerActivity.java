@@ -236,9 +236,9 @@ public class ViewerActivity extends AppCompatActivity {
                 final String account = Preferences.getSyncAccount(ViewerActivity.this);
 
                 if (!account.isEmpty()) {
-                    final String authToken = API.getToken(ViewerActivity.this, account,
+                    final String authToken = API.getInstance().getToken(ViewerActivity.this, account,
                             GCMService.getRegistrationIntent(ViewerActivity.this, account));
-                    API.deletePage(authToken, page);
+                    API.getInstance().deletePage(authToken, page);
                 }
 
                 return null;

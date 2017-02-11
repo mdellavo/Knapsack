@@ -16,3 +16,4 @@ builds
 *.pem
 *.zip
 */dist
+.cache

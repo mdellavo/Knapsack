@@ -12,6 +12,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -23,15 +26,25 @@ import org.json.JSONObject;
 import org.quuux.feller.Log;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class API {
 
     private static final String TAG = Log.buildTag(API.class);
 
-    public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    private static final String TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS";
 
-    private static final String API_ROOT = "https://knapsack.quuux.org";
+    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+
+    private static final boolean DEV = true;
+
+    private static final String API_ROOT = DEV ? "http://dev:6543" : "https://knapsack.quuux.org";
     private static final String CHECKIN_URL = API_ROOT + "/device_tokens";
     private static final String PAGES_URL = API_ROOT + "/pages";
 
@@ -41,6 +54,7 @@ public class API {
     static class GetPagesResponse {
         String status;
         String message;
+        Date before;
         List<Page> pages;
     }
 
@@ -62,57 +76,95 @@ public class API {
         }
     }
 
-    private static String execute(final Request request) throws IOException {
-        final OkHttpClient client = new OkHttpClient();
+    static API instance;
 
+    private CookieJar cookieJar = new CookieJar() {
+
+        Map<String, List<Cookie>> cookies = new HashMap<>();
+
+        @Override
+        public void saveFromResponse(final HttpUrl url, final List<Cookie> cookies) {
+            this.cookies.put(url.toString(), cookies);
+        }
+
+        @Override
+        public List<Cookie> loadForRequest(final HttpUrl url) {
+            return cookies.get(url.toString());
+        }
+    };
+
+    public static API getInstance() {
+        if (instance == null)
+            instance = new API();
+        return instance;
+    }
+
+    private OkHttpClient getClient() {
+        return new OkHttpClient.Builder()
+                .cookieJar(cookieJar)
+                .build();
+    }
+
+    private Gson getGson() {
+        return new GsonBuilder()
+                .setDateFormat(TIME_FORMAT)
+                .create();
+    }
+
+    private Request.Builder getRequest(final String url, final String authToken) {
+        return new Request.Builder()
+                .url(url)
+                .addHeader(HEADER_AUTH_TOKEN, authToken);
+    }
+
+    private Response execute(final Request request) throws IOException {
         final long t1 = System.currentTimeMillis();
-        final Response response = client.newCall(request).execute();
+        final Response response = getClient().newCall(request).execute();
         final long t2 = System.currentTimeMillis();
         Log.d(TAG, "%s %s (%sms) -> %s", request.method(), request.url(), t2-t1, response.code());
-
-        return response.body().string();
+        return response;
     }
 
-    private static Request.Builder getRequest(final String url, final String authToken) {
-        return new Request.Builder().url(url).addHeader(HEADER_AUTH_TOKEN, authToken);
-    }
 
-    private static String get(final String url, final String authToken) throws IOException {
+    private Response get(final String url, final String authToken) throws IOException {
         final Request request = getRequest(url, authToken).get().build();
        return execute(request);
     }
 
-    private static String post(final String url, final String json, final String authToken) throws IOException {
+    private Response post(final String url, final String json, final String authToken) throws IOException {
         final Request request = getRequest(url, authToken)
                 .post(RequestBody.create(JSON, json))
                 .build();
         return execute(request);
     }
 
-    private static String put(final String url, final String json, final String authToken) throws IOException {
+    private Response put(final String url, final String json, final String authToken) throws IOException {
         final Request request = getRequest(url, authToken)
                 .put(RequestBody.create(JSON, json))
                 .build();
         return execute(request);
     }
 
-    private static String delete(final String url, final String json, final String authToken) throws IOException {
+    private Response delete(final String url, final String json, final String authToken) throws IOException {
         final Request request = getRequest(url, authToken)
                 .method("DELETE",  RequestBody.create(JSON, json))
                 .build();
         return execute(request);
     }
 
-    public static boolean checkin(final String authToken, final String registrationId) {
+    private boolean isOk(Response resp) throws IOException, JSONException {
+        return resp.isSuccessful() && "ok".equals(new JSONObject(resp.body().string()).optString("status"));
+    }
+
+    public boolean checkin(final String authToken, final String registrationId) {
         boolean rv = false;
         try {
             final JSONObject params = new JSONObject();
             params.put("device_token", registrationId);
             params.put("model", Build.MODEL);
 
-            final String body = post(CHECKIN_URL, params.toString(), authToken);
-            final JSONObject resp = new JSONObject(body);
-            rv = "ok".equals(resp.optString("status"));
+            final Response resp = post(CHECKIN_URL, params.toString(), authToken);
+            rv = isOk(resp);
         } catch(IOException | JSONException e) {
             Log.e(TAG, "error checking in", e);
         }
@@ -120,7 +172,7 @@ public class API {
         return rv;
     }
 
-    public static boolean deletePage(final String authToken, final Page page) {
+    public boolean deletePage(final String authToken, final Page page) {
         boolean rv = false;
 
         try {
@@ -130,10 +182,8 @@ public class API {
             if (page.getUid() != null)
                 params.put("uid", page.getUid());
 
-            final String json = delete(PAGES_URL, params.toString(), authToken);
-            final JSONObject resp = new JSONObject(json);
-            rv = "ok".equals(resp.optString("status"));
-
+            final Response resp = delete(PAGES_URL, params.toString(), authToken);
+            rv = isOk(resp);
         } catch (JSONException | IOException e) {
             Log.e(TAG, "error deleting page", e);
         }
@@ -141,16 +191,15 @@ public class API {
         return rv;
     }
 
-    public static boolean setPages(final String authToken, final List<Page> pages) {
+    public boolean setPages(final String authToken, final List<Page> pages) {
         final SetPageRequest req = new SetPageRequest(pages);
         final Gson gson = getGson();
         final String json = gson.toJson(req);
 
         boolean rv = false;
         try {
-            final String respJson = put(PAGES_URL, json, authToken);
-            final JSONObject resp = new JSONObject(respJson);
-            rv = "ok".equals(resp.optString("status"));
+            final Response resp = put(PAGES_URL, json, authToken);
+            rv = isOk(resp);
         } catch (IOException | JSONException | JsonSyntaxException e) {
             Log.e(TAG, "error setting pages", e);
         }
@@ -158,16 +207,15 @@ public class API {
         return rv;
     }
 
-    public static boolean addPage(final String authToken, final Page page) {
+    public boolean addPage(final String authToken, final Page page) {
         final AddPageRequest req = new AddPageRequest(page);
         final Gson gson = getGson();
         final String json = gson.toJson(req);
 
         boolean rv = false;
         try {
-            final String respJson = post(PAGES_URL, json, authToken);
-            final JSONObject resp = new JSONObject(respJson);
-            rv = "ok".equals(resp.optString("status"));
+            final Response resp = post(PAGES_URL, json, authToken);
+            rv = isOk(resp);
         } catch (IOException | JSONException | JsonSyntaxException e) {
             Log.e(TAG, "error setting pages", e);
         }
@@ -175,23 +223,28 @@ public class API {
         return rv;
     }
 
-    public static List<Page> getPages(final String authToken) {
-
-        List<Page> rv = null;
-
+    public GetPagesResponse getPages(final String authToken, final Date before) {
         final Gson gson = getGson();
 
         try {
-            final String json = get(PAGES_URL, authToken);
+            final HttpUrl.Builder builder = HttpUrl.parse(PAGES_URL).newBuilder();
+            if (before != null) {
+                final SimpleDateFormat df = new SimpleDateFormat(TIME_FORMAT, Locale.US);
+                builder.addQueryParameter("before", df.format(before));
+            }
+            final String url = builder.build().toString();
+            final Response resp = get(url, authToken);
 
             //Log.d(TAG, "json: %s", json);
 
-            final GetPagesResponse response = gson.fromJson(json, GetPagesResponse.class);
+            if (resp.isSuccessful()) {
+                final GetPagesResponse response = gson.fromJson(resp.body().charStream(), GetPagesResponse.class);
 
-            if ("ok".equals(response.status)) {
-                rv = response.pages;
-            } else {
-                Log.d(TAG, "error fetching pages: %s", response.message);
+                if ("ok".equals(response.status)) {
+                   return response;
+                } else {
+                    Log.d(TAG, "error fetching pages: %s", response.message);
+                }
             }
 
         } catch (IOException e) {
@@ -200,16 +253,25 @@ public class API {
             Log.e(TAG, "error decoding pages", e);
         }
 
-        return rv;
+        return null;
     }
 
-    private static Gson getGson() {
-        return new GsonBuilder()
-                .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS")
-                .create();
+    public List<Page> getAllPages(final String authToken) {
+        List<Page> pages = new ArrayList<>();
+
+        Date before = null;
+
+        GetPagesResponse response;
+        do {
+            response = getPages(authToken, before);
+            before = response.before;
+            pages.addAll(response.pages);
+        } while(before != null);
+
+        return pages;
     }
 
-    public static String getToken(final Context context, final String account, final String scope, final Intent callback) {
+    public String getToken(final Context context, final String account, final String scope, final Intent callback) {
         String token = null;
 
         try {
@@ -222,7 +284,8 @@ public class API {
         return token;
     }
 
-    public static String getToken(final Context context, final String account, final Intent callback) {
+    public String getToken(final Context context, final String account, final Intent callback) {
         return getToken(context, account, SCOPE, callback);
     }
+
 }
