@@ -1,16 +1,45 @@
 import datetime
 import uuid
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import engine_from_config, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker, relationship
-from zope.sqlalchemy import ZopeTransactionExtension
+from sqlalchemy.orm import relationship, sessionmaker
 
 
-Session = scoped_session(sessionmaker(expire_on_commit=False, extension=ZopeTransactionExtension()))
 Base = declarative_base()
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
+
+
+def get_engine(settings, prefix='sqlalchemy.'):
+    return engine_from_config(settings, prefix)
+
+
+def get_session_factory(engine):
+    factory = sessionmaker()
+    factory.configure(bind=engine)
+    return factory
+
+
+def includeme(config):
+    """
+    Initialize the model for a Pyramid app.
+
+    Activate this setup using ``config.include('gumshoe.models')``.
+
+    """
+    settings = config.get_settings()
+
+    session_factory = get_session_factory(get_engine(settings))
+    config.registry['dbsession_factory'] = session_factory
+
+    # make request.dbsession available for use in Pyramid
+    config.add_request_method(
+        # r.tm is the transaction manager used by pyramid_tm
+        lambda r: session_factory(),
+        'session',
+        reify=True
+    )
 
 
 class DeviceToken(Base):
@@ -38,13 +67,15 @@ class Page(Base):
     deleted = Column(Boolean, default=False)
 
     def to_dict(self):
-        return {
+        rv = {
             'uid': self.uid,
             'url': self.url,
-            'title': self.title,
             'created': self.created.strftime(DATETIME_FORMAT),
             'read': self.read
         }
+        if self.title:
+            rv['title'] = self.title
+        return rv
 
 
 class User(Base):

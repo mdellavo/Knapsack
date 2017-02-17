@@ -9,7 +9,6 @@ from sqlalchemy import and_, or_
 from lockbox.lib import encrypt, decrypt
 
 from .models import (
-    Session,
     User,
     Page,
     DeviceToken,
@@ -46,8 +45,10 @@ class Token(object):
 
 
 class AuthToken(Token):
-    def __init__(self, email, expires_in, ts):
-        super(AuthToken, self).__init__(em=email, ex=expires_in, ts=ts)
+
+    @classmethod
+    def create(cls, email, expires_in, ts):
+        return cls(em=email, ex=expires_in, ts=ts)
 
     @property
     def email(self):
@@ -63,7 +64,7 @@ class AuthToken(Token):
 
     @property
     def expires_at(self):
-        return self.timestamp + self.expires_in
+        return self.timestamp + self.expires_in - SLOP
 
     @property
     def is_valid(self):
@@ -79,7 +80,7 @@ def get_auth_secret(lockbox):
 
 
 def body(d):
-    return {k: v for k, v in d.items() if v}
+    return {k: v for k, v in d.items() if v is not None}
 
 
 def error(message=None, **kwargs):
@@ -128,7 +129,7 @@ def validate_auth_token(f):
             if auth_token:
                 try:
                     email, expires_in = check_token(auth_token)
-                    token = AuthToken(email, expires_in - SLOP, time.time())
+                    token = AuthToken.create(email, expires_in, time.time())
                 except ValueError as e:
                     return error(str(e))
 
@@ -137,7 +138,7 @@ def validate_auth_token(f):
 
         request.response.set_cookie(COOKIE_NAME, token.serialize(get_auth_secret(request.lockbox)))
 
-        user = find_or_create_user(token.email)
+        user = find_or_create_user(request.session, token.email)
 
         return f(request, user, *args, **kwargs)
 
@@ -149,35 +150,38 @@ def send_welcome(user):
     pass
 
 
-def find_or_create_user(email):
-    user = Session.query(User).filter_by(email=email).first()
+def find_or_create_user(session, email):
+    user = session.query(User).filter_by(email=email).first()
     if not user:
         user = User(email=email)
-        Session.add(user)
+        session.add(user)
+        session.commit()
 
         send_welcome(user)
 
     return user
 
 
-def find_or_create_page(user, url):
+def find_or_create_page(session, user, url):
     page = user.pages.filter_by(url=url).first()
     if not page:
         page = Page(
             url=url,
             user=user
         )
-        Session.add(page)
+        session.add(page)
+        session.commit()
     page.deleted = False
     return page
 
 
-def find_or_create_device_token(user, token, model=None):
+def find_or_create_device_token(session, user, token, model=None):
     device_token = user.device_tokens.filter_by(token=token).first()
 
     if not device_token:
-        device_token = DeviceToken(token=token)
-        Session.add(device_token)
+        device_token = DeviceToken(user=user, token=token)
+        session.add(device_token)
+        session.commit()
 
     device_token.user = user
     device_token.model = model
@@ -185,7 +189,7 @@ def find_or_create_device_token(user, token, model=None):
     return device_token
 
 
-def notify_devices(api_key, user, event_type):
+def notify_devices(session, api_key, user, event_type):
 
     tokens = [device_token.token for device_token in user.active_device_tokens]
     if not tokens:
@@ -201,7 +205,7 @@ def notify_devices(api_key, user, event_type):
                     DeviceToken.user == user,
                     DeviceToken.token.in_(reg_ids)
                 )
-                Session.query(DeviceToken).filter(query).update({
+                session.query(DeviceToken).filter(query).update({
                     'active': False, 'deactivated_on': datetime.datetime.utcnow()
                 })
 
@@ -211,7 +215,7 @@ def notify_devices(api_key, user, event_type):
                 DeviceToken.user == user,
                 DeviceToken.token == reg_id
             )
-            Session.query(DeviceToken).filter(query).update({'token': canonical_id})
+            session.query(DeviceToken).filter(query).update({'token': canonical_id})
 
 
 def user_pages_response(user, before=None, limit=PAGE_LIMIT):
@@ -235,13 +239,12 @@ def add_page(request, user):
     params = json.loads(request.body)
 
     if not all(params.get(i) for i in ['page']):
-        raise error('invalid page')
+        return error('invalid page')
 
-    find_or_create_page(user, params['page']['url'])
+    page = find_or_create_page(request.session, user, params['page']['url'])
+    notify_devices(request.session, get_api_key(request.lockbox), user, EVENT_PAGE_ADD)
 
-    notify_devices(get_api_key(request.lockbox), user, EVENT_PAGE_ADD)
-
-    return ok()
+    return ok(page=page.to_dict())
 
 
 @view_config(route_name='pages', renderer='json', request_method="PUT")
@@ -250,7 +253,7 @@ def add_pages(request, user):
     params = json.loads(request.body)
 
     if not all(params.get(i) for i in ['pages']):
-        raise error('invalid page')
+        return error('invalid page')
 
     pages = params.get('pages')
 
@@ -268,7 +271,7 @@ def add_pages(request, user):
         )
 
     missing_pages = [make_page(page) for page in pages if page['url'] in missing_urls]
-    Session.add_all(missing_pages)
+    request.session.add_all(missing_pages)
 
     return ok()
 
@@ -291,7 +294,7 @@ def delete_page(request, user):
     params = json.loads(request.body)
 
     if not any(params.get(i) for i in ['url', 'uid']):
-        raise error('invalid page')
+        return error('invalid page')
 
     parts = [Page.url == params['url']]
 
@@ -299,7 +302,7 @@ def delete_page(request, user):
         parts.append(Page.uid == params['uid'])
 
     criteria = and_(Page.user == user, or_(*parts))
-    Session.query(Page).filter(criteria).update({'deleted': True})
+    request.session.query(Page).filter(criteria).update({'deleted': True})
 
     return ok()
 
@@ -311,9 +314,9 @@ def add_device_token(request, user):
     params = json.loads(request.body)
 
     if not all(params.get(i) for i in ['device_token']):
-        raise error('invalid device token')
+        return error('invalid device token')
 
-    find_or_create_device_token(user, params.get('device_token'), params.get('model'))
+    find_or_create_device_token(request.session, user, params.get('device_token'), params.get('model'))
 
     return ok()
 
