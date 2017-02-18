@@ -6,7 +6,7 @@ from knapsack import main, get_lockbox
 from pyramid.paster import get_appsettings
 from webtest import TestApp as WebTestApp
 
-from knapsack.models import Base, User, Page
+from knapsack.models import Base, User, Page, DeviceToken
 from knapsack.views import AuthToken, COOKIE_NAME, get_auth_secret
 
 
@@ -147,9 +147,12 @@ class TestAuth(FunctionalTests):
         self.assertTrue(page.deleted)
 
     def test_add_device_token(self):
-        DEVICE_TOKEN = "abc123xyz"
-        params = {"device_token": DEVICE_TOKEN}
+        TOKEN = "abc123xyz"
+        params = {"device_token": TOKEN}
         with self.patch_auth(AUTH_TOKEN):
             resp = self.app.post_json("/device_tokens", params=params, headers={"AUTH": AUTH_TOKEN})
         rj = resp.json
         self.assertEqual(rj["status"], "ok")
+
+        device_token = self.session.query(DeviceToken).first()
+        self.assertEqual(device_token.token, TOKEN)
