@@ -321,6 +321,6 @@ def add_device_token(request, user):
     return ok()
 
 
-@view_config(route_name='root', renderer='root.mako')
+@view_config(route_name='root', renderer='json')
 def root(request):
-    return {}
+    return ok()
