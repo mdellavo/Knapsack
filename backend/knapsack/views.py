@@ -17,7 +17,7 @@ from .models import (
 
 
 COOKIE_NAME = 'a'
-VALIDATION_ENDPOINT = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
+VALIDATION_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
 EVENT_PAGE_ADD = 'pa'
 SLOP = 10
 PAGE_LIMIT = 50
@@ -102,7 +102,7 @@ def event(type_, **kwargs):
 
 
 def check_token(auth_token):
-    resp = requests.post(VALIDATION_ENDPOINT, params={'access_token': auth_token}).json()
+    resp = requests.post(VALIDATION_ENDPOINT, params={'id_token': auth_token}).json()
 
     if resp.get('error'):
         raise ValueError('invalid auth_token')
@@ -170,8 +170,8 @@ def find_or_create_page(session, user, url):
             user=user
         )
         session.add(page)
-        session.commit()
     page.deleted = False
+    session.commit()
     return page
 
 
@@ -181,10 +181,10 @@ def find_or_create_device_token(session, user, token, model=None):
     if not device_token:
         device_token = DeviceToken(user=user, token=token)
         session.add(device_token)
-        session.commit()
 
     device_token.user = user
     device_token.model = model
+    session.commit()
 
     return device_token
 
@@ -272,7 +272,7 @@ def add_pages(request, user):
 
     missing_pages = [make_page(page) for page in pages if page['url'] in missing_urls]
     request.session.add_all(missing_pages)
-
+    request.session.commit()
     return ok()
 
 
@@ -303,7 +303,7 @@ def delete_page(request, user):
 
     criteria = and_(Page.user == user, or_(*parts))
     request.session.query(Page).filter(criteria).update({'deleted': True})
-
+    request.session.commit()
     return ok()
 
 

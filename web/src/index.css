@@ -1,5 +1,61 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: sans-serif;
+  padding-top: 20px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  font-family: Verdana, "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+}
+
+.container {
+    max-width: 730px;
+}
+
+.header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e5e5;
+   margin-bottom: 30px;
+}
+
+.header,
+.footer {
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
+.footer {
+  padding-top: 19px;
+  color: #777;
+  border-top: 1px solid #e5e5e5;
+}
+
+.jumbotron {
+  text-align: center;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.jumbotron .btn {
+  padding: 14px 24px;
+  font-size: 21px;
+}
+
+.marketing {
+  margin: 40px 0;
+}
+.marketing p + h4 {
+  margin-top: 28px;
+}
+
+.pages {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.add-page {
+    padding-bottom: 10px;
+}
+
+.page-item {
+    margin-bottom: 1em;
 }

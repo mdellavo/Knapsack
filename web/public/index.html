@@ -1,31 +1,83 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico">
-    <!--
-      Notice the use of %PUBLIC_URL% in the tag above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
+        <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico">
+        
+        <script src="https://apis.google.com/js/platform.js"></script>
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+        <title>Knapsack</title>
+    </head>
+    <body>
 
-      To begin the development, run `npm start`.
-      To create a production bundle, use `npm run build`.
-    -->
-  </body>
+        <div class="container">
+            <div class="header clearfix">
+                <div class="g-signin2 pull-right"></div>
+                <h3 class="text-muted">Knapsack</h3>
+            </div>
+
+            <div id="root">
+                <div class="jumbotron">
+                    <h1>Save the web!</h1>
+                    <p class="lead">
+                        Knapsack is an offline web browser for Android.  It lets you save a copy of a web page to read later,
+                        possibly when you don't have network access.
+                    </p>
+                    <p>
+                        Knapsack also allows you to sync multiple devices and maintains a backup of your saved web pages.
+                    </p>
+                    <p>
+                        <a href="http://play.google.com/store/apps/details?id=org.quuux.knapsack"
+                           class="btn btn-primary btn-lg">Knapsack for Android</a>
+
+                        <a href="http://chrome.google.com/webstore/detail/knapsack/mbfcbodpdkoofkphfkgfdlghpojldipe"
+                           class="btn btn-success btn-lg">Knapsack for Chrome</a>
+
+                    </p>
+                </div>
+
+                <div class="row marketing">
+                    <div class="col-lg-6">
+                        <h4>Knapsack for Android</h4>
+                        <p>
+                            Knapsack offline browser for Android.
+                        </p>
+
+                        <h4>Knapsack for Web</h4>
+                        <p>
+                            Manage your saved webpages from a web browser.  Changes will be synced to the clients.
+                        </p>
+
+                        <h4>Knapsack for Chrome</h4>
+                        <p>
+                            Knapsack for Chrome is a Chrome plugin that allows you to push a web page to all
+                            of your devices to be saved
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">
+                <p class="text-center">
+                    <a href="https://play.google.com/store/search?q=pub:Quuux Software">
+                        <span class="text-muted">More Android apps from Quuux Software</span>
+                    </a>
+                </p>
+            </div>
+        </div>
+
+        <script>
+         (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+             (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                                  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+         })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+         ga('create', 'UA-51555701-2', 'auto');
+         ga('send', 'pageview');
+
+        </script>
+
+    </body>
 </html>
