@@ -1,6 +1,7 @@
 import json
 import time
 import datetime
+import urlparse
 
 import requests
 from gcm import GCM
@@ -8,12 +9,7 @@ from pyramid.view import view_config
 from sqlalchemy import and_, or_
 from lockbox.lib import encrypt, decrypt
 
-from .models import (
-    User,
-    Page,
-    DeviceToken,
-    DATETIME_FORMAT
-)
+from .models import User, Page, DeviceToken, DATETIME_FORMAT
 
 
 COOKIE_NAME = 'a'
@@ -232,6 +228,11 @@ def user_pages_response(user, before=None, limit=PAGE_LIMIT):
     return ok(pages=[page.to_dict() for page in pages], before=before)
 
 
+def valid_page_url(url):
+    parsed_url = urlparse.urlparse(url)
+    return parsed_url.scheme in ["http", "https"] and parsed_url.netloc
+
+
 @view_config(route_name='pages', renderer='json', request_method="POST")
 @validate_auth_token
 def add_page(request, user):
@@ -241,7 +242,11 @@ def add_page(request, user):
     if not all(params.get(i) for i in ['page']):
         return error('invalid page')
 
-    page = find_or_create_page(request.session, user, params['page']['url'])
+    url = params["page"]["url"]
+    if not valid_page_url(url):
+        return error("URL [{}] is not valid".format(url))
+
+    page = find_or_create_page(request.session, user, url)
     notify_devices(request.session, get_api_key(request.lockbox), user, EVENT_PAGE_ADD)
 
     return ok(page=page.to_dict())

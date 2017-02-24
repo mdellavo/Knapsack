@@ -3,7 +3,7 @@ import uuid
 
 from sqlalchemy import engine_from_config, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, sessionmaker, scoped_session
 
 
 Base = declarative_base()
@@ -16,7 +16,7 @@ def get_engine(settings, prefix='sqlalchemy.'):
 
 
 def get_session_factory(engine):
-    factory = sessionmaker()
+    factory = scoped_session(sessionmaker())
     factory.configure(bind=engine)
     return factory
 

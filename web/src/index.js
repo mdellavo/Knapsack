@@ -36,6 +36,9 @@ class _API {
     getPages(success, error) {
         return this.buildXHR("GET", "/pages", null, success, error);
     }
+    addPage(url, success, error) {
+        return this.buildXHR("POST", "/pages", {page: {url: url}}, success, error);        
+    }
     deletePage(page, success, error) {
         return this.buildXHR("DELETE", "/pages", {uid: page.uid, url: page.url}, success, error);
     }
@@ -71,8 +74,11 @@ class PageItem extends React.Component {
     delete(e) {
         e.preventDefault();
         API.deletePage(this.props.page, (r) => {
-            if (r.status === "ok")
+            if (r.status === "ok") {
                 this.props.onPageRemoved(this.props.page);
+            } else {
+                console.log(r);
+            }
         });
     }
     
@@ -112,19 +118,49 @@ class PageItem extends React.Component {
 class PageList extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {pages: []};
+        this.state = {pages: [], url: ""};
+        this.onPagesLoaded = this.onPagesLoaded.bind(this);
         this.onPageRemoved = this.onPageRemoved.bind(this);
+        this.onInputChanged = this.onInputChanged.bind(this);
+        this.addPage = this.addPage.bind(this);
     }
 
-    addPages(pages) {
+    onPagesLoaded(pages) {
         this.setState({pages: this.state.pages.concat(pages)});
+    }
+
+
+    onInputChanged(e) {
+        this.setState({url: e.target.value});
+    }
+    
+    addPage(e) {
+        e.preventDefault();
+        
+        var url = this.state.url;
+        if (!url) {
+            window.alert("missing url");
+            return;
+        }
+
+        API.addPage(url, (r) => {
+            if (r.status === "ok") {
+                this.state.pages.unshift(r.page);
+                this.setState({pages: this.state.pages, url: ""});
+            } else {
+                console.log(r);
+            }
+        });      
     }
 
     componentDidMount() {
         var list = this;
         API.getPages((r) => {
-            if (r.status === "ok")
-                list.addPages(r.pages);
+            if (r.status === "ok") {
+                list.onPagesLoaded(r.pages);
+            } else {
+                console.log(r);
+            }
         });
     }
 
@@ -139,15 +175,23 @@ class PageList extends React.Component {
     render() {
         var items = this.state.pages.map((page) => <PageItem page={page} key={page.uid} onPageRemoved={this.onPageRemoved}/>);
         return (
-            <div className="row">
-              <div className="add-page">  
-               <div className="input-group">
-                   <input type="text" className="form-control" placeholder="Page URL (http://example.com/foo/bar)"/>
-                   <span className="input-group-btn">
-                       <button className="btn btn-default" type="button">Add</button>
-                   </span>
+             <div className="row">
+                
+                <div className="add-page">
+                <form onSubmit={this.addPage}>
+
+                <div className="input-group">
+
+                <input type="text" className="form-control" placeholder="Page URL (http://example.com/foo/bar)" onChange={this.onInputChanged} value={this.state.url}/>
+                
+                <span className="input-group-btn">
+                <button className="btn btn-default" type="submit">Add</button>
+                </span>
+                
+                 </div>
+                </form>
                 </div>
-               </div>
+                
                <ul className="pages">
                    {items}
                </ul>

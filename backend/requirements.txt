@@ -1,12 +1,6 @@
 paste
 pyramid
-pyramid_chameleon
-pyramid_debugtoolbar
-pyramid_tm
-pyramid_mako
 SQLAlchemy
-transaction
-zope.sqlalchemy
 waitress
 psycopg2
 python-gcm
@@ -16,3 +10,5 @@ pytest
 pytest-cov
 mock
 wsgicors
+ipython
+pyramid_ipython
