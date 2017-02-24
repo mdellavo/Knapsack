@@ -1,10 +1,12 @@
-
 import 'bootstrap/dist/css/bootstrap.css';
 import 'bootstrap/dist/css/bootstrap-theme.css';
 import './index.css';
 
 import React from 'react';
 import ReactDOM from 'react-dom';
+
+import { Modal, Button } from 'react-bootstrap';
+
 import $ from 'jquery';
 
 const gapi = window.gapi;
@@ -21,6 +23,13 @@ class _API {
         return currentUser.getAuthResponse().id_token;
     }
     buildXHR(method, path, data, success, error) {
+
+        if (!error) {
+            error = (xhr, msg) => {
+                show_error("Unexpected Network Error", msg);
+            }
+        }
+        
         return $.ajax({
             dataType: "json",
             method: method,
@@ -54,6 +63,52 @@ function formatDateTime(dt) {
     return new Date(dt).toLocaleDateString("en-US", {hour12: true, year: "numeric", day: "numeric", weekday: "short", month: "short", hour: "numeric", minute: "numeric"});
 }
 
+
+class ErrorModal extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {show: true};
+        this.show = this.show.bind(this);
+        this.close = this.close.bind(this);
+    }
+
+    show() {
+        this.setState({show: true});
+    }
+    
+    close() {
+        this.setState({show: false});
+    }
+
+    render() {
+        return (
+        <div className="static-modal">
+          <Modal show={this.state.show} onHide={this.close}>
+            <Modal.Header closeButton>
+              <Modal.Title>{this.props.title}</Modal.Title>
+            </Modal.Header>
+        
+            <Modal.Body>
+              {this.props.message}
+            </Modal.Body>
+        
+            <Modal.Footer>
+              <Button onClick={this.close}>Close</Button>
+            </Modal.Footer>
+
+          </Modal>
+        </div>
+    );
+    }
+}
+
+function show_error(title, message) {
+    ReactDOM.render(
+        <ErrorModal title={title} message={message}/>,
+        document.getElementById('modal-container')
+    ).show();
+}
+
 class PageItem extends React.Component {
     constructor(props) {
         super(props);
@@ -77,7 +132,7 @@ class PageItem extends React.Component {
             if (r.status === "ok") {
                 this.props.onPageRemoved(this.props.page);
             } else {
-                console.log(r);
+                show_error("Error Deleting Page", r.message);
             }
         });
     }
@@ -105,8 +160,8 @@ class PageItem extends React.Component {
         
         return (
             <li id={this.props.page.uid} className="page-item" onMouseEnter={this.mouseEnter} onMouseLeave={this.mouseLeave}>
-                {deleteElement}
                 {title}
+                {deleteElement}
                 {subtitle}
                 <div><small className="text-muted">Saved on {formatDateTime(this.props.page.created)}</small></div>
             </li>
@@ -148,7 +203,7 @@ class PageList extends React.Component {
                 this.state.pages.unshift(r.page);
                 this.setState({pages: this.state.pages, url: ""});
             } else {
-                console.log(r);
+                show_error("Error Adding Page", r.message);
             }
         });      
     }
@@ -159,7 +214,7 @@ class PageList extends React.Component {
             if (r.status === "ok") {
                 list.onPagesLoaded(r.pages);
             } else {
-                console.log(r);
+                show_error("Error Loading Pages", r.message)
             }
         });
     }
