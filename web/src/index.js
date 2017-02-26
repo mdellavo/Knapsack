@@ -15,12 +15,40 @@ const DEV = true;
 const API_ROOT = DEV ? 'http://localhost:6543' : 'https://knapsack.quuux.org';
 const CLIENT_ID = '843379878054-9vg4fq679tsmir2k0rf7hbuhk6n9f214.apps.googleusercontent.com';
 
-var auth2;
-var currentUser;
-
 class _API {
+    constructor(api_root, client_id) {
+        this.api_root = api_root;
+        this.auth2 = null;
+        this.currentUser = null;
+
+        this.loadAuth(client_id);
+    }
+
+    loadAuth(client_id) {
+        var api = this;
+        gapi.load('auth2', () => {
+            api.auth2 = gapi.auth2.init({
+                client_id: client_id,
+                scope: 'profile'
+            });
+
+            api.auth2.isSignedIn.listen(() => {
+                attachApp();
+            });
+
+            api.auth2.currentUser.listen((user) => {
+                api.currentUser = user;
+            });
+
+            if (api.auth2.isSignedIn.get()) {
+                attachApp();
+            }
+
+        });
+    }
+    
     getAuth() {
-        return currentUser.getAuthResponse().id_token;
+        return this.currentUser.getAuthResponse().id_token;
     }
     buildXHR(method, path, data, success, error) {
 
@@ -33,7 +61,7 @@ class _API {
         return $.ajax({
             dataType: "json",
             method: method,
-            url: API_ROOT + path,
+            url: this.api_root + path,
             headers: {
                 Auth: this.getAuth()
             },
@@ -53,14 +81,23 @@ class _API {
     }
 }
 
-const API = new _API();
+const API = new _API(API_ROOT, CLIENT_ID);
 
 function hostname(url) {
     return new URL(url).hostname;
 }
 
 function formatDateTime(dt) {
-    return new Date(dt).toLocaleDateString("en-US", {hour12: true, year: "numeric", day: "numeric", weekday: "short", month: "short", hour: "numeric", minute: "numeric"});
+    var options = {
+        hour12: true,
+        year: "numeric",
+        day: "numeric",
+        weekday: "short",
+        month: "short",
+        hour: "numeric",
+        minute: "numeric"
+    };
+    return new Date(dt).toLocaleDateString("en-US", options);
 }
 
 
@@ -261,25 +298,3 @@ function attachApp() {
         document.getElementById('root')
     );
 }
-
-gapi.load('auth2', function() {
-    auth2 = gapi.auth2.init({
-        client_id: CLIENT_ID,
-        scope: 'profile'
-    });
-
-    auth2.isSignedIn.listen(function() {
-        attachApp();
-    });
-
-    auth2.currentUser.listen(function(user) {
-        currentUser = user;
-    });
-
-    if (auth2.isSignedIn.get()) {
-        attachApp();
-    }
-
-});
-
-
