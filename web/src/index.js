@@ -12,7 +12,7 @@ import $ from 'jquery';
 const gapi = window.gapi;
 
 const DEV = true;
-const API_ROOT = DEV ? 'http://localhost:6543' : 'https://knapsack.quuux.org';
+const API_ROOT = DEV ? 'http://localhost:6543' : 'https://knapsack-api.quuux.org';
 const CLIENT_ID = '843379878054-9vg4fq679tsmir2k0rf7hbuhk6n9f214.apps.googleusercontent.com';
 
 class _API {
@@ -48,7 +48,7 @@ class _API {
     }
     
     getAuth() {
-        return this.currentUser.getAuthResponse().id_token;
+        return this.currentUser.getAuthResponse(true).access_token;
     }
     buildXHR(method, path, data, success, error) {
 

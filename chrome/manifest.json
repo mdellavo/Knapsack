@@ -3,7 +3,7 @@
 
     "name": "Knapsack",
     "description": "Send page to Knapsack to be archived for offline reading.",
-    "version": "1.0.6",
+    "version": "1.0.7",
 
     "permissions": [
         "tabs",

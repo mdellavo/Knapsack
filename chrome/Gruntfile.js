@@ -4,7 +4,6 @@ module.exports = function (grunt) {
 
     var manifest = grunt.file.readJSON('manifest.json');
 
-
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
         uglify: {
@@ -29,7 +28,7 @@ module.exports = function (grunt) {
         },
 
         jshint: {
-            all: ['Gruntfile.js', 'src/**/*.js']
+            all: ['Gruntfile.js', 'src/3*.js']
         },
 
         exec: {
@@ -42,7 +41,7 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-exec');
 
     grunt.registerTask('default', function () {
-        grunt.task.run(['jshint', 'uglify']);
+        grunt.task.run(['uglify']);
 
         grunt.file.copy('assets/icon.png', 'build/icon.png');
         grunt.file.copy('assets/popup.html', 'build/popup.html');

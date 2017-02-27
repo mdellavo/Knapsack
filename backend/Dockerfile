@@ -16,6 +16,11 @@ RUN rm /tmp/requirements.txt
 RUN apt-get purge -y git
 RUN apt-get autoremove -y
 
+RUN mkdir /tmp/knapsack
+COPY . /tmp/knapsack
+
+RUN cd /tmp/knapsack/ && python setup.py install
+
 RUN mkdir /site
 COPY production.ini /site/knapsack.ini
 COPY knapsack.lockbox /site

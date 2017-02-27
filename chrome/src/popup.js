@@ -1,4 +1,4 @@
-PAGES_ENDPOINT = 'https://knapsack.quuux.org/pages';
+PAGES_ENDPOINT = 'https://knapsack-api.quuux.org/pages';
 
 function getAuthToken(callback) {
     chrome.identity.getAuthToken({interactive: true}, callback);

@@ -98,13 +98,19 @@ def event(type_, **kwargs):
 
 
 def check_token(auth_token):
-    resp = requests.post(VALIDATION_ENDPOINT, params={'id_token': auth_token}).json()
+    resp = requests.post(VALIDATION_ENDPOINT, params={'access_token': auth_token}).json()
+
+    # import pprint
+    # pprint.pprint(resp)
 
     if resp.get('error'):
         raise ValueError('invalid auth_token')
 
     email = resp.get('email')
     expires_in = resp.get('expires_in')
+
+    if not email:
+        raise ValueError('couldnt get email')
 
     return email, expires_in
 
@@ -223,7 +229,7 @@ def user_pages_response(user, before=None, limit=PAGE_LIMIT):
     before = None
     if len(pages) > limit:
         pages = pages[:-1]
-        before = pages[-1].created
+        before = pages[-1].created.strftime(DATETIME_FORMAT)
 
     return ok(pages=[page.to_dict() for page in pages], before=before)
 
