@@ -11,7 +11,7 @@ import $ from 'jquery';
 
 const gapi = window.gapi;
 
-const DEV = true;
+const DEV = process.env.NODE_ENV !== "production";
 const API_ROOT = DEV ? 'http://localhost:6543' : 'https://knapsack-api.quuux.org';
 const CLIENT_ID = '843379878054-9vg4fq679tsmir2k0rf7hbuhk6n9f214.apps.googleusercontent.com';
 
@@ -65,19 +65,25 @@ class _API {
             headers: {
                 Auth: this.getAuth()
             },
-            data: data ? JSON.stringify(data) : null,
+            data: data,
             success: success,
             error: error
         });        
     }
-    getPages(success, error) {
-        return this.buildXHR("GET", "/pages", null, success, error);
+    buildXHRJson(method, path, data, success, error) {
+        return this.buildXHR(method, path, JSON.stringify(data), success, error);
+    }   
+    getPages(before, success, error) {
+        var params = {};
+        if (before)
+            params.before = before;
+        return this.buildXHR("GET", "/pages", params, success, error);
     }
     addPage(url, success, error) {
-        return this.buildXHR("POST", "/pages", {page: {url: url}}, success, error);        
+        return this.buildXHRJson("POST", "/pages", {page: {url: url}}, success, error);        
     }
     deletePage(page, success, error) {
-        return this.buildXHR("DELETE", "/pages", {uid: page.uid, url: page.url}, success, error);
+        return this.buildXHRJson("DELETE", "/pages", {uid: page.uid, url: page.url}, success, error);
     }
 }
 
@@ -206,19 +212,29 @@ class PageItem extends React.Component {
     }
 }
 
-
 class PageList extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {pages: [], url: ""};
+        this.state = {pages: [], url: "", before: null};
         this.onPagesLoaded = this.onPagesLoaded.bind(this);
         this.onPageRemoved = this.onPageRemoved.bind(this);
         this.onInputChanged = this.onInputChanged.bind(this);
+        this.handlePagesLoadedResponse = this.handlePagesLoadedResponse.bind(this);
+        this.loadMore = this.loadMore.bind(this);
         this.addPage = this.addPage.bind(this);
     }
 
-    onPagesLoaded(pages) {
-        this.setState({pages: this.state.pages.concat(pages)});
+    handlePagesLoadedResponse(r) {
+        if (r.status === "ok") {
+            var before = r.before ? r.before : null;
+            this.onPagesLoaded(r.pages, before);
+        } else {
+            show_error("Error Loading Pages", r.message)
+        }
+    }
+    
+    onPagesLoaded(pages, before) {
+        this.setState({pages: this.state.pages.concat(pages), before: before});
     }
 
 
@@ -246,14 +262,7 @@ class PageList extends React.Component {
     }
 
     componentDidMount() {
-        var list = this;
-        API.getPages((r) => {
-            if (r.status === "ok") {
-                list.onPagesLoaded(r.pages);
-            } else {
-                show_error("Error Loading Pages", r.message)
-            }
-        });
+        API.getPages(null, this.handlePagesLoadedResponse);
     }
 
     onPageRemoved(page) {
@@ -263,30 +272,43 @@ class PageList extends React.Component {
         
         this.setState({pages: pages});
     }
+
+    loadMore(e) {
+        e.preventDefault();
+        
+        if (!this.state.before)
+            return;
+        API.getPages(this.state.before, this.handlePagesLoadedResponse);
+    }
     
     render() {
-        var items = this.state.pages.map((page) => <PageItem page={page} key={page.uid} onPageRemoved={this.onPageRemoved}/>);
+        var items = this.state.pages.map((page) => <PageItem  page={page} key={page.uid} onPageRemoved={this.onPageRemoved}/>);
+
+        var more;
+        if (this.state.before) {
+            var url = API_ROOT + "/pages?before=" + this.state.before;
+            more = <a href={url} onClick={this.loadMore}>(more)</a>
+        }
+        
         return (
-             <div className="row">
-                
+             <div className="row">               
                 <div className="add-page">
-                <form onSubmit={this.addPage}>
-
-                <div className="input-group">
-
-                <input type="text" className="form-control" placeholder="Page URL (http://example.com/foo/bar)" onChange={this.onInputChanged} value={this.state.url}/>
-                
-                <span className="input-group-btn">
-                <button className="btn btn-default" type="submit">Add</button>
-                </span>
-                
-                 </div>
+                  <form onSubmit={this.addPage}>
+                    <div className="input-group">
+                      <input type="text"
+                        className="form-control"
+                        placeholder="Page URL (http://example.com/foo/bar)"
+                        onChange={this.onInputChanged} value={this.state.url}/>    
+                      <span className="input-group-btn">
+                        <button className="btn btn-default" type="submit">Add</button>
+                      </span>
+                    </div>               
                 </form>
-                </div>
-                
+                </div>                
                <ul className="pages">
                    {items}
                </ul>
+               {more} 
             </div>
         );
     }

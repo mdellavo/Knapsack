@@ -16,7 +16,7 @@ COOKIE_NAME = 'a'
 VALIDATION_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
 EVENT_PAGE_ADD = 'pa'
 SLOP = 10
-PAGE_LIMIT = 50
+PAGE_LIMIT = 100
 
 
 class Token(object):
@@ -60,7 +60,7 @@ class AuthToken(Token):
 
     @property
     def expires_at(self):
-        return self.timestamp + self.expires_in - SLOP
+        return float(self.timestamp) + float(self.expires_in) - SLOP
 
     @property
     def is_valid(self):
@@ -221,9 +221,10 @@ def notify_devices(session, api_key, user, event_type):
 
 
 def user_pages_response(user, before=None, limit=PAGE_LIMIT):
-    pages = user.active_pages.limit(limit + 1)
+    pages = user.active_pages
     if before:
         pages = pages.filter(Page.created < before)
+    pages = pages.limit(limit + 1)
 
     pages = list(pages)
     before = None
