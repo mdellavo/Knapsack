@@ -2,6 +2,7 @@ import json
 import time
 import datetime
 import urlparse
+import logging
 
 import requests
 from gcm import GCM
@@ -17,6 +18,8 @@ VALIDATION_ENDPOINT = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
 EVENT_PAGE_ADD = 'pa'
 SLOP = 10
 PAGE_LIMIT = 100
+
+log = logging.getLogger(__name__)
 
 
 class Token(object):
@@ -68,11 +71,11 @@ class AuthToken(Token):
 
 
 def get_api_key(lockbox):
-    return lockbox.get("gcm_api_key")
+    return lockbox["gcm_api_key"]
 
 
 def get_auth_secret(lockbox):
-    return lockbox.get("auth_secret")
+    return lockbox["auth_secret"]
 
 
 def body(d):
@@ -100,9 +103,6 @@ def event(type_, **kwargs):
 def check_token(auth_token):
     resp = requests.post(VALIDATION_ENDPOINT, params={'access_token': auth_token}).json()
 
-    # import pprint
-    # pprint.pprint(resp)
-
     if resp.get('error'):
         raise ValueError('invalid auth_token')
 
@@ -117,14 +117,15 @@ def check_token(auth_token):
 
 def validate_auth_token(f):
     def _validate_auth_token(request, *args, **kwargs):
-
         token = None
-
         cookie = request.cookies.get(COOKIE_NAME)
         if cookie:
-            token = AuthToken.unserialize(get_auth_secret(request.lockbox), cookie)
-            if not token.is_valid:
-                token = None
+            try:
+                token = AuthToken.unserialize(get_auth_secret(request.lockbox), cookie)
+                if not token.is_valid:
+                    token = None
+            except Exception as e:
+                log.exception("error decoding auth token: %s", str(e))
 
         if not token:
             auth_token = request.headers.get('Auth')
