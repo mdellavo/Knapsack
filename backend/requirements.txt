@@ -1,4 +1,6 @@
 paste
+PasteScript
+PasteDeploy
 pyramid
 SQLAlchemy
 waitress

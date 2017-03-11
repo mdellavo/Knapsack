@@ -30,4 +30,4 @@ ENV HOME /site
 ENV PYTHON_EGG_CACHE /tmp/python-eggs
 WORKDIR /site
 
-CMD ["uwsgi", "--plugin", "python", "--paste", "config:/site/knapsack.ini" , "-s", "0.0.0.0:3100", "--master", "--workers", "3"]
+CMD ["uwsgi", "--plugin", "python", "--paste", "config:/site/knapsack.ini" , "-s", "0.0.0.0:3100", "--master", "--workers", "3", "--paste-logger", "/site/knapsack.ini"]

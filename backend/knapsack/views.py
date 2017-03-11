@@ -71,11 +71,11 @@ class AuthToken(Token):
 
 
 def get_api_key(lockbox):
-    return lockbox["gcm_api_key"]
+    return lockbox.get("gcm_api_key")
 
 
 def get_auth_secret(lockbox):
-    return lockbox["auth_secret"]
+    return lockbox.get("auth_secret")
 
 
 def body(d):

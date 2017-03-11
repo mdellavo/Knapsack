@@ -1,11 +1,13 @@
 import os
 
 from pyramid.config import Configurator
-from lockbox import open_lockbox, get_secret
+from lockbox import LockBox, get_secret
 
 def get_lockbox(settings):
     secret = os.environ["LOCKBOX_SECRET"] if "LOCKBOX_SECRET" in os.environ else get_secret()
-    lockbox = open_lockbox(settings["lockbox_path"], secret)
+    lockbox = LockBox(secret)
+    with open(settings["lockbox_path"]) as f:
+        lockbox.load(f)
     return lockbox
 
 

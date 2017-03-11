@@ -173,7 +173,7 @@ var PopupView = Backbone.View.extend({
 
         post(PAGES_ENDPOINT, params, function(resp) {
             $spin.spin(false);
-            view.pagesLoaded(resp);
+            view.pageAdded(resp);
             view.setStatus(resp.status == 'ok' ? 'Added' : 'Error!');
         });
     },
@@ -194,6 +194,10 @@ var PopupView = Backbone.View.extend({
         this.pages.reset(resp.pages);
     },
 
+    pageAdded: function(resp) {
+        this.pages.add(resp.page);
+    },
+    
     onInstall: function(e) {
         e.preventDefault();
         chrome.tabs.create({ url: e.target.href });
