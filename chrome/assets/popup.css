@@ -5,7 +5,7 @@ body {
 
 #main {
     background: #fff;
-    padding: 10px 15px;
+    padding: 5px 5px;
 
     width: 400px;
     min-width: 400px;
@@ -28,8 +28,7 @@ body {
 }
 
 #status {
-    margin-top: 10px;
-    margin-bottom: 20px;
+    padding-bottom: 10px;
 }
 
 #pages {
@@ -37,12 +36,20 @@ body {
     max-height: 300px;
     height: 300px;
     overflow: scroll;
+    padding: 5px 5px;
 }
 
 #about {
-    text-align: center;
-    border-top: 2px solid #333;
-    padding: 10px;
+    border-top: 1px solid #ccc;
+    padding: 5px 0;
+}
+
+.goto {
+    
+}
+
+.install {
+    float: right;
 }
 
 #about a {
@@ -54,13 +61,13 @@ body {
 }
 
 .page {
-    margin-bottom: 10px;
+    padding-bottom: 10px;
 }
 
 .page .body {
-    width: 380px;
-    max-width: 380px;
-    min-width: 380px;
+    width: 350px;
+    max-width: 350px;
+    min-width: 350px;
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -69,14 +76,27 @@ body {
 
 .page .title {
     cursor: pointer;
+    font-size: 16px;
+    color: #333;
+}
+
+.page .created {
+    color: #777;
+    font-size: 10px;
 }
 
 .page .delete {
     font-weight: bold;
     float: right;
     color: #900;
-    text-size: 14px;
     cursor: pointer;
+    display: none;
+    line-height: 18px;
+    font-size: 18px;
+}
+
+.page:hover .delete {
+    display: block;
 }
 
 .add {

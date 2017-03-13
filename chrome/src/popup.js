@@ -1,5 +1,18 @@
 PAGES_ENDPOINT = 'https://knapsack-api.quuux.org/pages';
 
+function formatDateTime(dt) {
+    var options = {
+        hour12: true,
+        year: "numeric",
+        day: "numeric",
+        weekday: "short",
+        month: "short",
+        hour: "numeric",
+        minute: "numeric"
+    };
+    return new Date(dt).toLocaleDateString("en-US", options);
+}
+
 function getAuthToken(callback) {
     chrome.identity.getAuthToken({interactive: true}, callback);
 }
@@ -70,7 +83,9 @@ var PageView = Backbone.View.extend({
     },
 
     render: function() {
-        this.$el.html(replace(this.template, this.model.get('title') || this.model.get('url')));
+        var title = this.model.get('title') || this.model.get('url');
+        var created = formatDateTime(this.model.get('created'));
+        this.$el.html(replace(this.template, title, created));
         return this;
     },
 
@@ -101,7 +116,7 @@ var PageView = Backbone.View.extend({
 
 var PagesView = Backbone.View.extend({
     initialize: function() {
-        this.listenTo(this.collection, 'reset', this.render);
+        this.listenTo(this.collection, 'add reset', this.render);
     },
 
     render: function() {
@@ -124,7 +139,7 @@ var PopupView = Backbone.View.extend({
 
     events: {
         'click .add': 'onAdd',
-        'click .install': 'onInstall'
+        'click .install,.goto': 'openUrl'
     },
 
     initialize: function(options) {
@@ -195,10 +210,10 @@ var PopupView = Backbone.View.extend({
     },
 
     pageAdded: function(resp) {
-        this.pages.add(resp.page);
+        this.pages.add(resp.page, {at: 0});
     },
     
-    onInstall: function(e) {
+    openUrl: function(e) {
         e.preventDefault();
         chrome.tabs.create({ url: e.target.href });
     }
