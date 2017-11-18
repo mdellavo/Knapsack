@@ -212,14 +212,10 @@ public class ArchiveService extends IntentService {
             if (pages != null) {
 
                 final PageCache cache = PageCache.getInstance();
-
                 for (final Page p : pages) {
-                    final Page page = cache.ensurePage(p);
-                    if (page.isNew())
-                        archive(this, page);
+                    cache.ensurePage(p);
                 }
 
-                upload(authToken, pages);
             } else {
                 Log.e(TAG, "error syncing pages");
             }

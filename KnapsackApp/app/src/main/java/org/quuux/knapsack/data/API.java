@@ -28,6 +28,7 @@ import org.quuux.feller.Log;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -42,9 +43,9 @@ public class API {
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-    private static final boolean DEV = true;
+    private static final boolean DEV = false;
 
-    private static final String API_ROOT = DEV ? "http://dev:6543" : "https://knapsack.quuux.org";
+    private static final String API_ROOT = DEV ? "http://dev:6543" : "https://knapsack-api.quuux.org";
     private static final String CHECKIN_URL = API_ROOT + "/device_tokens";
     private static final String PAGES_URL = API_ROOT + "/pages";
 
@@ -89,7 +90,10 @@ public class API {
 
         @Override
         public List<Cookie> loadForRequest(final HttpUrl url) {
-            return cookies.get(url.toString());
+            List<Cookie> rv = cookies.get(url.toString());
+            if (rv == null)
+                rv = new ArrayList<>();
+            return rv;
         }
     };
 
@@ -104,6 +108,7 @@ public class API {
                 .cookieJar(cookieJar)
                 .build();
     }
+
 
     private Gson getGson() {
         return new GsonBuilder()
@@ -233,6 +238,7 @@ public class API {
                 builder.addQueryParameter("before", df.format(before));
             }
             final String url = builder.build().toString();
+            Log.d(TAG, "url: %s", url);
             final Response resp = get(url, authToken);
 
             //Log.d(TAG, "json: %s", json);
