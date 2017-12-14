@@ -19,9 +19,9 @@ Ideas
 
 ToDo
 ----
-- [ ] Make page loads lazy, dont load all
+- [x] Make page loads lazy, dont load all
 - [ ] Scrape title
-- [ ] Fix intitial load adapater refresh after load all pages
+- [x] Fix intitial load adapater refresh after load all pages
 - [ ] Better unsaved mode
 - [ ] Merge Viewer and ArchiveActivity - dont prompt on unsaved, just load from network, archvie - simplify
 - [ ] Switch to FCM

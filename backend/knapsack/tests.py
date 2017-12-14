@@ -97,18 +97,6 @@ class TestAuth(FunctionalTests):
         self.assertEqual(rj["status"], "ok")
         self.assertEqual(rj["page"]["url"], URL)
 
-    def test_add_pages(self):
-        urls = ["http://example.com/{}.html".format(i) for i in range(10)]
-        params = {"pages": [{"url": url} for url in urls]}
-        with self.patch_auth(AUTH_TOKEN):
-            resp = self.app.put_json("/pages", params=params, headers={"AUTH": AUTH_TOKEN})
-        rj = resp.json
-        self.assertEqual(rj["status"], "ok")
-
-        pages = self.session.query(Page).all()
-        for i, page in enumerate(pages):
-            self.assertEqual(page.url, urls[i])
-
     def test_list_pages(self):
         user = create_user(self.session, AUTH_EMAIL)
         with self.patch_auth(AUTH_TOKEN):

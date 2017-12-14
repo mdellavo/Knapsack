@@ -12,5 +12,5 @@ pytest
 pytest-cov
 mock
 wsgicors
-ipython
-pyramid_ipython
+#ipythonx
+#pyramid_ipython

@@ -55,9 +55,9 @@
     <string name="page_saved">Page saved</string>
     <string name="page_error">An error occurred while saving the page, please try again</string>
     <string name="page_loaded">Page loaded</string>
-    <string name="archiving_many">Saving page to Knapsack, %s remaining...</string>
-    <string name="archived_many">Page saved to Knapsack, %s remaining...</string>
-    <string name="archive_error_many">Error saving page to Knapsack, %s remaining</string>
+    <string name="archiving_many">Saving page to Knapsack, %d remaining...</string>
+    <string name="archived_many">Page saved to Knapsack, %d remaining...</string>
+    <string name="archive_error_many">Error saving page to Knapsack, %d remaining</string>
     <string name="resave_page">Resave page</string>
     <string name="delete_page">Delete</string>
     <string name="open_source">Open Source</string>

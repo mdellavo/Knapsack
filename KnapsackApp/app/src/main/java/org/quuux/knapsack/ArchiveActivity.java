@@ -60,28 +60,10 @@ public class ArchiveActivity extends Activity {
 
     private void loadPage(final Intent intent) {
 
-        final Page page;
         if (intent.hasExtra(EXTRA_PAGE))
-            page = (Page) intent.getSerializableExtra(EXTRA_PAGE);
+            mPage = (Page) intent.getSerializableExtra(EXTRA_PAGE);
         else
-            page = Page.extractPage(intent);
-
-        new AsyncTask<Page, Void, Page>() {
-            @Override
-            protected Page doInBackground(final Page... params) {
-                return PageCache.getInstance().ensurePage(params[0]);
-            }
-
-            @Override
-            protected void onPostExecute(final Page page) {
-                super.onPostExecute(page);
-                doLoad(page);
-            }
-        }.execute(page);
-    }
-
-    private void doLoad(final Page page) {
-        mPage = page;
+            mPage = Page.extractPage(intent);
 
         mWebView.setWebChromeClient(new ArchiveHelper.ArchiveChromeClient(mPage) {
             @Override
@@ -117,7 +99,7 @@ public class ArchiveActivity extends Activity {
 
         mWebView.onResume();
         mWebView.resumeTimers();
-        ArchiveHelper.loadPage(page, mWebView);
+        ArchiveHelper.loadPage(mPage, mWebView);
         mLoaded = true;
     }
 
@@ -147,12 +129,13 @@ public class ArchiveActivity extends Activity {
                 onPageSaved();
             }
         });
-        mPage.setStatus(Page.STATUS_SUCCESS);
-        PageCache.getInstance().commitAsync(mPage);
-
     }
 
     public void onPageSaved() {
+        mPage.setStatus(Page.STATUS_SUCCESS);
+
+        ArchiveService.commit(this, mPage);
+
         Toast.makeText(this, R.string.page_saved, Toast.LENGTH_LONG).show();
         mButton.setEnabled(true);
     }

@@ -5,7 +5,6 @@ import android.app.Dialog;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.ServiceConnection;
@@ -120,8 +119,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         } else {
             Log.i(TAG, "No valid Google Play Services APK found.");
         }
-
-        sync();
     }
 
     @Override
@@ -219,25 +216,9 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
     }
 
     public void onPageClick(final Page page) {
-        if (page.isSuccess()) {
-            final Intent intent = new Intent(this, ViewerActivity.class);
-            intent.putExtra("page", page);
-            startActivity(intent);
-        } else {
-            final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder
-                    .setTitle(R.string.archive_page_title)
-                    .setMessage(R.string.archive_page_message)
-                    .setCancelable(true)
-                    .setNegativeButton(R.string.cancel, null)
-                    .setPositiveButton(R.string.archive, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(final DialogInterface dialog, final int which) {
-                            savePage(page);
-                        }
-                    });
-            builder.create().show();
-        }
+        final Intent intent = new Intent(this, ViewerActivity.class);
+        intent.putExtra("page", page);
+        startActivity(intent);
     }
 
     private boolean checkPlayServices() {
@@ -363,6 +344,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
     @Override
     public void onRefresh() {
+        Log.d(TAG, "refresh!!!");
         sync();
     }
 
@@ -458,6 +440,18 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             holder.screenshot.setImageResource(R.drawable.blank);
         }
 
+        private void tryLoadFavicon(final Page page, final Holder holder) {
+
+            final Callback fallbackIcon = new Callback.EmptyCallback() {
+                @Override
+                public void onError() {
+                    loadDefault(holder);
+                }
+            };
+
+            Picasso.with(IndexActivity.this).load(page.getFavicon()).fit().centerInside().into(holder.favicon, fallbackIcon);
+        }
+
         private void loadFavicon(final Page page, final Holder holder) {
             holder.favicon.setVisibility(View.VISIBLE);
             holder.screenshot.setImageResource(R.drawable.blank);
@@ -465,7 +459,7 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             final Callback fallbackIcon = new Callback.EmptyCallback() {
                 @Override
                 public void onError() {
-                    loadDefault(holder);
+                    tryLoadFavicon(page, holder);
                 }
             };
 
@@ -507,7 +501,6 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
 
                 @Override
                 public void onBitmapFailed(final Drawable errorDrawable) {
-                    Log.d(TAG, "screenshot loading failed");
                     loadFavicon(page, holder);
                 }
 

@@ -1,6 +1,7 @@
 package org.quuux.knapsack.data;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Patterns;
 
@@ -46,7 +47,7 @@ public class Page implements Serializable {
     }
 
     public String getTitle() {
-        return title;
+        return title != null ? title : url;
     }
 
     public Date getCreated() {
@@ -108,6 +109,13 @@ public class Page implements Serializable {
 
     public Date getlastStatusChange() {
         return lastStatusChange;
+    }
+
+    public Uri getFavicon() {
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        Uri favicon = new Uri.Builder().scheme("http").authority(host).path("/favicon.ico").build();
+        return favicon;
     }
 
     @Override

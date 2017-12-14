@@ -1,6 +1,7 @@
 package org.quuux.knapsack.data;
 
 
+import android.annotation.SuppressLint;
 import android.os.AsyncTask;
 import android.util.Pair;
 
@@ -21,7 +22,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class PageCache {
@@ -86,18 +86,9 @@ public class PageCache {
         return rv;
     }
 
-    public void commitAsync(final Page page) {
-        new AsyncTask<Page, Void, Void>() {
-            @Override
-            protected Void doInBackground(final Page... params) {
-                commitPage(params[0]);
-                return null;
-            }
-        }.execute(page);
-    }
-
     public void scanPages() {
         scanning = true;
+        EventBus.getInstance().post(new PagesUpdated());
         new ScanArchivesTask().execute(CacheManager.getArchivePath());
     }
 
@@ -106,7 +97,7 @@ public class PageCache {
         EventBus.getInstance().post(new PagesUpdated());
     }
 
-    public  boolean isLoading() {
+    public boolean isLoading() {
         return scanning;
     }
 
@@ -198,6 +189,9 @@ public class PageCache {
         return instance;
     }
 
+    public void addPage(final String url) {
+        addPage(new Page(url, null, null));
+    }
 
     class LoadPageCallable implements Callable<Page> {
 

@@ -165,17 +165,33 @@ def find_or_create_user(session, email):
     return user
 
 
-def find_or_create_page(session, user, url):
+def upsert_page(session, user, url, params):
     page = user.pages.filter_by(url=url).first()
+
+    created = False
     if not page:
         page = Page(
             url=url,
             user=user
         )
         session.add(page)
-    page.deleted = False
-    session.commit()
-    return page
+        created = True
+
+    title = params.get("title")
+    if title and title != page.title:
+        page.title = title
+
+    read = params.get("read")
+    if read is not None and read != page.read:
+        page.read = read
+
+    if page.deleted:
+        page.deleted = False
+
+    if created or session.is_modified(page):
+        session.commit()
+
+    return page, created
 
 
 def find_or_create_device_token(session, user, token, model=None):
@@ -192,14 +208,16 @@ def find_or_create_device_token(session, user, token, model=None):
     return device_token
 
 
-def notify_devices(session, api_key, user, event_type):
+def notify_devices(session, api_key, user, event_data):
 
     tokens = [device_token.token for device_token in user.active_device_tokens]
     if not tokens:
         return
 
+    log.info("notifying device tokens %s", tokens)
+
     gcm = GCM(api_key)
-    resp = gcm.json_request(registration_ids=tokens, data=event(event_type))
+    resp = gcm.json_request(registration_ids=tokens, data=event_data)
 
     if 'errors' in resp:
         for error, reg_ids in resp.items():
@@ -243,7 +261,7 @@ def valid_page_url(url):
 
 @view_config(route_name='pages', renderer='json', request_method="POST")
 @validate_auth_token
-def add_page(request, user):
+def update_page(request, user):
 
     params = json.loads(request.body)
 
@@ -254,39 +272,11 @@ def add_page(request, user):
     if not valid_page_url(url):
         return error("URL [{}] is not valid".format(url))
 
-    page = find_or_create_page(request.session, user, url)
-    notify_devices(request.session, get_api_key(request.lockbox), user, EVENT_PAGE_ADD)
+    page, created = upsert_page(request.session, user, url, params)
+    if created:
+        notify_devices(request.session, get_api_key(request.lockbox), user, event(EVENT_PAGE_ADD, url=page.url))
 
     return ok(page=page.to_dict())
-
-
-@view_config(route_name='pages', renderer='json', request_method="PUT")
-@validate_auth_token
-def add_pages(request, user):
-    params = json.loads(request.body)
-
-    if not all(params.get(i) for i in ['pages']):
-        return error('invalid page')
-
-    pages = params.get('pages')
-
-    urls = set(page['url'] for page in pages if page.get('url'))
-    known_urls = set(page.url for page in user.pages)
-    missing_urls = urls - known_urls
-
-    def make_page(page):
-        return Page(
-            user=user,
-            url=page['url'],
-            title=page.get('title'),
-            read=page.get('read'),
-            created=datetime.datetime.strptime(page['created'], '%Y-%m-%dT%H:%M:%S.%f') if page.get('created') else None
-        )
-
-    missing_pages = [make_page(page) for page in pages if page['url'] in missing_urls]
-    request.session.add_all(missing_pages)
-    request.session.commit()
-    return ok()
 
 
 def parse_datetime(s):

@@ -46,14 +46,12 @@ public class ArchiveHelper {
         settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
+        settings.setJavaScriptEnabled(true);
+        settings.setLoadsImagesAutomatically(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            WebView.enableSlowWholeDocumentDraw();
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
-
-        settings.setLoadsImagesAutomatically(true);
-        settings.setAllowFileAccess(true);
 
         if  (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
             settings.setAllowFileAccessFromFileURLs(true);
@@ -62,9 +60,7 @@ public class ArchiveHelper {
 
         CookieManager.getInstance().setAcceptCookie(true);
 
-            settings.setJavaScriptEnabled(true);
-
-            view.setBackgroundColor(view.getResources().getColor(android.R.color.white));
+        view.setBackgroundColor(view.getResources().getColor(android.R.color.white));
     }
 
     public static void loadPage(final Page page, final WebView view) {

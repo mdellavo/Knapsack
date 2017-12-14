@@ -40,6 +40,7 @@ import org.quuux.knapsack.data.API;
 import org.quuux.knapsack.data.CacheManager;
 import org.quuux.knapsack.data.Page;
 import org.quuux.knapsack.data.PageCache;
+import org.quuux.knapsack.util.ArchiveHelper;
 import org.quuux.knapsack.view.NestedWebView;
 
 import java.io.File;
@@ -140,7 +141,7 @@ public class ViewerActivity extends AppCompatActivity {
             float progress = calculateProgress(mContentView);
             mPage.setProgress(progress);
             Log.d(TAG, "saving position @ %s", mPage.getProgress());
-            PageCache.getInstance().commitPage(mPage);
+            ArchiveService.commit(this, mPage);
         }
     }
 
@@ -159,6 +160,7 @@ public class ViewerActivity extends AppCompatActivity {
 
     @Override
     public void onSaveInstanceState(final Bundle outState) {
+        super.onSaveInstanceState(outState);
         final float position = calculateProgress(mContentView);
         Log.d(TAG, "saving position %s", position);
         outState.putFloat("position", position);
@@ -269,37 +271,31 @@ public class ViewerActivity extends AppCompatActivity {
 
     @SuppressLint("SetJavaScriptEnabled")
     private void initWebView(final WebView view) {
+        boolean isNetworkAvailable = isNetworkAvailable();
 
         view.setVerticalScrollBarEnabled(true);
-        view.setNetworkAvailable(false);
+        view.setNetworkAvailable(isNetworkAvailable);
 
         final WebSettings settings = view.getSettings();
         settings.setJavaScriptEnabled(true);
-
-        if (!isNetworkAvailable()) {
-            settings.setBlockNetworkLoads(true);
-            settings.setBlockNetworkImage(true);
-            settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
-        }
+        settings.setBlockNetworkLoads(!isNetworkAvailable);
+        settings.setBlockNetworkImage(!isNetworkAvailable);
+        settings.setCacheMode(isNetworkAvailable ? WebSettings.LOAD_CACHE_ELSE_NETWORK : WebSettings.LOAD_CACHE_ONLY);
         settings.setLoadsImagesAutomatically(true);
-
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setLoadWithOverviewMode(true);
+        settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+        settings.setUseWideViewPort(true);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-
-        settings.setAllowFileAccess(true);
 
         if  (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
             settings.setAllowFileAccessFromFileURLs(true);
             settings.setAllowUniversalAccessFromFileURLs(true);
         }
-
-        settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-        settings.setUseWideViewPort(true);
 
         view.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -359,6 +355,9 @@ public class ViewerActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 toggleProgress(false);
 
+                if (mPage.isNew())
+                    savePage();
+
                 mHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -405,22 +404,45 @@ public class ViewerActivity extends AppCompatActivity {
         }
     }
 
-    private void load() {
-        Log.d(TAG, "loading: %s", mPage);
+    private void loadNetwork() {
+        Log.d(TAG, "loading network: %s", mPage);
+        ArchiveHelper.loadPage(mPage, mContentView);
+    }
+
+    private void loadArchive() {
+        Log.d(TAG, "loading archive: %s", mPage);
 
         final File file = CacheManager.getArchivePath(mPage.getUrl(), "index.mht");
         try {
             mContentView.loadUrl(file.toURI().toURL().toString());
         } catch (MalformedURLException e) {
-            Log.e(TAG, "error loading page", e);
+            Log.e(TAG, "error loading archived page", e);
         }
+    }
+
+    private void load() {
+        if (mPage.isNew() && isNetworkAvailable())
+            loadNetwork();
+        else
+            loadArchive();
 
         if (!mPage.isRead()) {
             mPage.markRead();
-            PageCache.getInstance().commitAsync(mPage);
         }
 
         lastLoad = new Date();
     }
 
+    private void savePage() {
+        ArchiveHelper.savePage(mPage, mContentView, new Runnable() {
+            @Override
+            public void run() {
+                onPageSaved();
+            }
+        });
+    }
+
+    private void onPageSaved() {
+        mPage.setStatus(Page.STATUS_SUCCESS);
+    }
 }

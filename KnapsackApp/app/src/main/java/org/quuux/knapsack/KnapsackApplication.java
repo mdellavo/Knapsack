@@ -2,6 +2,8 @@ package org.quuux.knapsack;
 
 import android.app.Application;
 import android.net.http.HttpResponseCache;
+import android.os.Build;
+import android.webkit.WebView;
 
 import org.quuux.feller.Log;
 import org.quuux.knapsack.data.CacheManager;
@@ -28,5 +30,11 @@ public class KnapsackApplication extends Application {
         }
 
         PageCache.getInstance().scanPages();
+        ArchiveService.sync(this);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            WebView.enableSlowWholeDocumentDraw();
+        }
+
     }
 }

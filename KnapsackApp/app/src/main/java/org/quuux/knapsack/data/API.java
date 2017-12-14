@@ -28,7 +28,6 @@ import org.quuux.feller.Log;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -59,19 +58,10 @@ public class API {
         List<Page> pages;
     }
 
-    static class SetPageRequest {
-        List<Page> pages;
-
-        public SetPageRequest(final List<Page> pages) {
-            super();
-            this.pages = pages;
-        }
-    }
-
-    static class AddPageRequest {
+    static class UpdatePageRequest {
         Page page;
 
-        public AddPageRequest(final Page page) {
+        public UpdatePageRequest(final Page page) {
             super();
             this.page = page;
         }
@@ -196,24 +186,8 @@ public class API {
         return rv;
     }
 
-    public boolean setPages(final String authToken, final List<Page> pages) {
-        final SetPageRequest req = new SetPageRequest(pages);
-        final Gson gson = getGson();
-        final String json = gson.toJson(req);
-
-        boolean rv = false;
-        try {
-            final Response resp = put(PAGES_URL, json, authToken);
-            rv = isOk(resp);
-        } catch (IOException | JSONException | JsonSyntaxException e) {
-            Log.e(TAG, "error setting pages", e);
-        }
-
-        return rv;
-    }
-
-    public boolean addPage(final String authToken, final Page page) {
-        final AddPageRequest req = new AddPageRequest(page);
+    public boolean updatePage(final String authToken, final Page page) {
+        final UpdatePageRequest req = new UpdatePageRequest(page);
         final Gson gson = getGson();
         final String json = gson.toJson(req);
 

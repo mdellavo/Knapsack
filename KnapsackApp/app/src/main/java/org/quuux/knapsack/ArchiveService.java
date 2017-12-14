@@ -23,9 +23,9 @@ import org.quuux.knapsack.data.Page;
 import org.quuux.knapsack.data.PageCache;
 import org.quuux.knapsack.event.EventBus;
 import org.quuux.knapsack.event.PageUpdated;
+import org.quuux.knapsack.event.PagesUpdated;
 import org.quuux.knapsack.util.ArchiveHelper;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -37,10 +37,9 @@ public class ArchiveService extends IntentService {
 
     private static final String TAG = Log.buildTag(ArchiveService.class);
 
-    public static final String ACTION_ARCHIVE_UPDATE = "org.quuux.knapsack.action.ARCHIVE_UPDATE";
     public static final String ACTION_SYNC = "org.quuux.knapsack.action.SYNC";
     public static final String ACTION_ARCHIVE = "org.quuux.knapsack.action.ARCHIVE";
-    public static final String ACTION_SYNC_COMPLETE = "org.quuux.knapsack.action.SYNC_COMPLETE";
+    public static final String ACTION_COMMIT = "org.quuux.knapsack.action.COMMIT";
 
     private static final String EXTRA_PAGE = "page";
 
@@ -62,24 +61,15 @@ public class ArchiveService extends IntentService {
         context.startService(intent);
     }
 
-    public static void archive(final Context context, final Page page) {
-        if (isArchiving(page))
-            return;
-
-        mArchiving.add(page);
-
+    public static void commit(final Context context, final Page page) {
         final Intent intent = new Intent(context, ArchiveService.class);
-        intent.setAction(ACTION_ARCHIVE);
+        intent.setAction(ACTION_COMMIT);
         intent.putExtra(EXTRA_PAGE, page);
         context.startService(intent);
     }
 
     public static boolean isArchiving(final Page page) {
         return mArchiving.contains(page);
-    }
-
-    public static boolean isArchiving() {
-        return mArchiving.size() > 0;
     }
 
     @Override
@@ -113,6 +103,9 @@ public class ArchiveService extends IntentService {
             case ArchiveService.ACTION_SYNC:
                 sync();
                 break;
+            case ArchiveService.ACTION_COMMIT:
+                doCommit(getPageFromIntent(intent));
+                break;
         }
 
         GCMBroadcastReceiver.completeWakefulIntent(intent);
@@ -131,6 +124,15 @@ public class ArchiveService extends IntentService {
         return PageCache.getInstance().ensurePage(page);
     }
 
+    private void doCommit(Page page) {
+        PageCache.getInstance().commitPage(page);
+        if (isConnected()) {
+            final String authToken = getAuthToken();
+            if (authToken != null)
+                API.getInstance().updatePage(authToken, page);
+        }
+    }
+
     private void doArchive(final Intent intent) {
         final Page page = getPageFromIntent(intent);
         if (page == null)
@@ -146,11 +148,7 @@ public class ArchiveService extends IntentService {
             Log.d(TAG, "result: (%s) %s", result.getStatus(), result.getUrl());
         }
 
-        if (page.getUid() == null) {
-            final String authToken = getAuthToken();
-            if (authToken != null)
-                API.getInstance().addPage(authToken, page);
-        }
+        doCommit(page);
 
         mArchiving.remove(page);
 
@@ -172,22 +170,6 @@ public class ArchiveService extends IntentService {
         return activeNetwork != null && activeNetwork.getType() == ConnectivityManager.TYPE_WIFI;
     }
 
-    private void upload(final String authToken, final List<Page> excludingPages)
-    {
-        final PageCache cache =  PageCache.getInstance();
-        final List<Page> localPages = new ArrayList<>();
-
-        cache.scanPages();
-        for (Page p : cache.getPages()) {
-            if (!p.isKnown())
-                localPages.add(p);
-        }
-
-        if (localPages.size() > 0) {
-            API.getInstance().setPages(authToken, localPages);
-        }
-    }
-
     private void dumpExtras(final Intent intent) {
         final Bundle bundle = intent.getExtras();
         for (String key : bundle.keySet()) {
@@ -196,11 +178,21 @@ public class ArchiveService extends IntentService {
         }
     }
 
+    private void broadcastSync() {
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                EventBus.getInstance().post(new PagesUpdated());
+            }
+        });
+    }
+
     private void sync() {
         if (!isConnected())
             return;
 
         syncing = true;
+        broadcastSync();
 
         Log.d(TAG, "fetching pages...");
 
@@ -222,6 +214,7 @@ public class ArchiveService extends IntentService {
         }
 
         syncing = false;
+        broadcastSync();
     }
 
     private String getAuthToken() {
@@ -246,7 +239,6 @@ public class ArchiveService extends IntentService {
         Page result = null;
         try {
             result = mQueue.take();
-            result = PageCache.getInstance().commitPage(page);
         } catch (InterruptedException e) {
             Log.e(TAG, "error getting result", e);
         }

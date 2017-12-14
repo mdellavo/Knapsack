@@ -62,7 +62,7 @@ dependencies {
 
     compile 'jp.wasabeef:recyclerview-animators:1.1.2@aar'
     compile 'org.quuux.feller:feller:0.1'
-    compile 'org.quuux.sack:sack:0.1'
+    compile 'org.quuux.sack:sack:0.2.1'
 }
 
 task askForPasswords << {
