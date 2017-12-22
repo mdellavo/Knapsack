@@ -26,12 +26,11 @@ import org.quuux.knapsack.event.PageUpdated;
 import org.quuux.knapsack.event.PagesUpdated;
 import org.quuux.knapsack.util.ArchiveHelper;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class ArchiveService extends IntentService {
 
@@ -43,7 +42,6 @@ public class ArchiveService extends IntentService {
 
     private static final String EXTRA_PAGE = "page";
 
-    private static final Set<Page> mArchiving = Collections.newSetFromMap(new ConcurrentHashMap<Page, Boolean>());
     private static final int NOTIFICATION = 10;
 
     private final Handler mHandler = new Handler();
@@ -68,10 +66,6 @@ public class ArchiveService extends IntentService {
         context.startService(intent);
     }
 
-    public static boolean isArchiving(final Page page) {
-        return mArchiving.contains(page);
-    }
-
     @Override
     public void onCreate() {
         super.onCreate();
@@ -89,10 +83,6 @@ public class ArchiveService extends IntentService {
 
         if (intent.getExtras() != null)
             dumpExtras(intent);
-
-        // FIXME move to application
-//        AdBlocker adblocker = AdBlocker.getInstance();
-//        adblocker.load(this);
 
         final String action = intent.getAction();
         switch (action) {
@@ -141,16 +131,12 @@ public class ArchiveService extends IntentService {
         if (!isConnected())
             return;
 
-        mArchiving.add(page);
-
         if (!Preferences.wifiOnly(this) || isWifi()) {
             final Page result = archivePage(page);
             Log.d(TAG, "result: (%s) %s", result.getStatus(), result.getUrl());
         }
 
         doCommit(page);
-
-        mArchiving.remove(page);
 
         mHandler.post(new Runnable() {
             @Override
@@ -174,7 +160,7 @@ public class ArchiveService extends IntentService {
         final Bundle bundle = intent.getExtras();
         for (String key : bundle.keySet()) {
             Object value = bundle.get(key);
-            Log.d(TAG, "%s %s", key, value);
+            Log.d(TAG, "Extra: %s -> %s", key, value);
         }
     }
 
@@ -185,6 +171,31 @@ public class ArchiveService extends IntentService {
                 EventBus.getInstance().post(new PagesUpdated());
             }
         });
+    }
+
+
+
+
+    public List<Page> syncPages(final String authToken) {
+        List<Page> pages = new ArrayList<>();
+
+        Date before = null;
+        PageCache cache = PageCache.getInstance();
+
+        API.GetPagesResponse response;
+        do {
+            response = API.getInstance().getPages(authToken, before);
+            before = response.before;
+            for (Page page : response.pages) {
+                boolean containsPage = cache.getPage(page) != null;
+                if (containsPage)
+                    return pages;
+
+                pages.add(page);
+            }
+        } while(before != null);
+
+        return pages;
     }
 
     private void sync() {
@@ -199,7 +210,7 @@ public class ArchiveService extends IntentService {
         final String authToken = getAuthToken();
 
         if (authToken != null) {
-             final List<Page> pages = API.getInstance().getAllPages(authToken);
+             final List<Page> pages = syncPages(authToken);
 
             if (pages != null) {
 
@@ -207,6 +218,8 @@ public class ArchiveService extends IntentService {
                 for (final Page p : pages) {
                     cache.ensurePage(p);
                 }
+
+                Log.d(TAG, "synced %d pages", pages.size());
 
             } else {
                 Log.e(TAG, "error syncing pages");
@@ -273,11 +286,10 @@ public class ArchiveService extends IntentService {
 
         final NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder
-                .setContentTitle(mArchiving.size() > 1 ? getString(R.string.archiving_many, mArchiving.size()) : getString(R.string.archiving))
+                .setContentTitle(getString(R.string.archiving))
                 .setContentText(getContextText(page))
                 .setSmallIcon(R.drawable.ic_stat_archving)
                 .setContentIntent(pendingIntent)
-                .setNumber(mArchiving.size())
                 .setProgress(100, 0, true);
 
         updateNotification(builder.build(), page);
@@ -310,8 +322,7 @@ public class ArchiveService extends IntentService {
                     return;
 
                 builder.setProgress(0, 0, true);
-                builder.setContentTitle(mArchiving.size() > 1 ? getString(R.string.archiving_many, mArchiving.size()) : getString(R.string.archiving));
-                builder.setNumber(mArchiving.size());
+                builder.setContentTitle(getString(R.string.archiving));
                 updateNotification(builder.build(), page);
 
                 mHandler.removeCallbacks(timeout);
@@ -374,17 +385,15 @@ public class ArchiveService extends IntentService {
 
     private void notifySuccess(final NotificationCompat.Builder builder, final Page page) {
         builder.setProgress(0, 0, false);
-        builder.setContentTitle(mArchiving.size() > 0 ? getString(R.string.archived_many, mArchiving.size()) : getString(R.string.archived));
+        builder.setContentTitle(getString(R.string.archived));
         builder.setContentText(getContextText(page));
-        builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
     }
 
     private void notifyError(final NotificationCompat.Builder builder, final Page page) {
         builder.setProgress(0, 0, false);
-        builder.setContentTitle(mArchiving.size() > 0 ? getString(R.string.archive_error_many, mArchiving.size()) : getString(R.string.archive_error));
+        builder.setContentTitle(getString(R.string.archive_error));
         builder.setContentText(getContextText(page));
-        builder.setNumber(mArchiving.size());
         updateNotification(builder.build(), page);
     }
 

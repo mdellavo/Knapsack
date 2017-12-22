@@ -51,15 +51,15 @@ public class API {
     private static final String SCOPE = "oauth2:https://www.googleapis.com/auth/userinfo.email";
     private static final String HEADER_AUTH_TOKEN = "Auth";
 
-    static class GetPagesResponse {
-        String status;
-        String message;
-        Date before;
-        List<Page> pages;
+    public static class GetPagesResponse {
+        public String status;
+        public String message;
+        public Date before;
+        public List<Page> pages;
     }
 
-    static class UpdatePageRequest {
-        Page page;
+    public static class UpdatePageRequest {
+        public Page page;
 
         public UpdatePageRequest(final Page page) {
             super();
@@ -103,6 +103,7 @@ public class API {
     private Gson getGson() {
         return new GsonBuilder()
                 .setDateFormat(TIME_FORMAT)
+                .serializeSpecialFloatingPointValues()
                 .create();
     }
 
@@ -236,20 +237,6 @@ public class API {
         return null;
     }
 
-    public List<Page> getAllPages(final String authToken) {
-        List<Page> pages = new ArrayList<>();
-
-        Date before = null;
-
-        GetPagesResponse response;
-        do {
-            response = getPages(authToken, before);
-            before = response.before;
-            pages.addAll(response.pages);
-        } while(before != null);
-
-        return pages;
-    }
 
     public String getToken(final Context context, final String account, final String scope, final Intent callback) {
         String token = null;

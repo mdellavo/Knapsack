@@ -123,15 +123,19 @@ public class Page implements Serializable {
         return String.format("Page(url: %s / uid: %s)", url, uid);
     }
 
+    private Object updateValue(Object current, Object updated) {
+        return current == null && updated != null ? updated : current;
+    }
+
     public void update(final Page other) {
-        uid = other.uid;
-        title = other.title;
-        url = other.url;
-        created = other.created;
-        status = other.status;
-        lastStatusChange = other.lastStatusChange;
-        progress = other.progress;
-        read = other.read;
+        uid = (String) updateValue(uid, other.uid);
+        title = (String) updateValue(title, other.title);
+        url = (String) updateValue(url, other.url);
+        created = (Date) updateValue(created, other.created);
+        status = (int) updateValue(status, other.status);
+        lastStatusChange = (Date) updateValue(lastStatusChange, other.lastStatusChange);
+        progress = (float) updateValue(progress, other.progress);
+        read = (boolean) updateValue(read, other.read);
     }
 
     public static Page extractPage(final String text, final String title) {

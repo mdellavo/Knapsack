@@ -1,7 +1,6 @@
 package org.quuux.knapsack.data;
 
 
-import android.annotation.SuppressLint;
 import android.os.AsyncTask;
 import android.util.Pair;
 
@@ -14,7 +13,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -23,18 +21,28 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PageCache {
 
     private static final String TAG = Log.buildTag(PageCache.class);
     private static PageCache instance;
 
-    private Map<String, Page> mPages = new HashMap<>();
+    private Map<String, Page> mPages = new ConcurrentHashMap<>();
     private boolean scanning;
 
     protected PageCache() {}
 
-    private Page loadPage(final File manifest) {
+
+    public synchronized static PageCache getInstance() {
+
+        if (instance == null)
+            instance = new PageCache();
+
+        return instance;
+    }
+
+    private synchronized Page loadPage(final File manifest) {
         final long t1 = System.currentTimeMillis();
 
         Page rv = null;
@@ -60,7 +68,7 @@ public class PageCache {
         return loadPage(page.getUrl());
     }
 
-    public Page commitPage(Page page) {
+    public synchronized Page commitPage(Page page) {
 
         final long t1 = System.currentTimeMillis();
 
@@ -148,7 +156,7 @@ public class PageCache {
         return rv;
     }
 
-    private Page addPage(Page page) {
+    private synchronized Page addPage(Page page) {
 
         final Page existing = getPage(page);
         if (existing != null) {
@@ -163,7 +171,11 @@ public class PageCache {
         return page;
     }
 
-    private List<Page> addPages(List<Page> pages) {
+    public void addPage(final String url) {
+        addPage(new Page(url, null, null));
+    }
+
+    public List<Page> addPages(List<Page> pages) {
         final List<Page> rv = new ArrayList<>(pages.size());
 
         for (Page page : pages)
@@ -172,25 +184,13 @@ public class PageCache {
         return rv;
     }
 
-    public void deletePage(final Page page) {
+    public synchronized void deletePage(final Page page) {
         final long t1 = System.currentTimeMillis();
         mPages.remove(page.getUrl());
         CacheManager.delete(page);
         final long t2 = System.currentTimeMillis();
         Log.d(TAG, "deleted %s in %s", CacheManager.getArchivePath(page).getPath(), t2-t1);
         //EventBus.getInstance().post(new PagesUpdated());
-    }
-
-    public static PageCache getInstance() {
-
-        if (instance == null)
-            instance = new PageCache();
-
-        return instance;
-    }
-
-    public void addPage(final String url) {
-        addPage(new Page(url, null, null));
     }
 
     class LoadPageCallable implements Callable<Page> {

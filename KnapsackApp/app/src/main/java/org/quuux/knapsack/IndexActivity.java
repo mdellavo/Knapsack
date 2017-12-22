@@ -95,13 +95,13 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
         final String syncAccount = Preferences.getSyncAccount(this);
         final boolean hasSync = !syncAccount.isEmpty();
 
-        mEmptyView = (WebView) findViewById(R.id.empty);
+        mEmptyView = findViewById(R.id.empty);
         mEmptyView.setBackgroundColor(Color.TRANSPARENT);
 
-        mSwipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_container);
+        mSwipeLayout = findViewById(R.id.swipe_container);
         mSwipeLayout.setOnRefreshListener(this);
 
-        mRecyclerView = (RecyclerView) findViewById(android.R.id.list);
+        mRecyclerView = findViewById(android.R.id.list);
         mRecyclerView.setHasFixedSize(true);
 
         final boolean isPortrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
@@ -412,14 +412,13 @@ public class IndexActivity extends AppCompatActivity implements SwipeRefreshLayo
             holder.read.setText(page.isRead() ? R.string.read : R.string.unread);
             holder.read.setVisibility(page.isRead() ? View.GONE : View.VISIBLE);
 
-            final boolean isArchiving = ArchiveService.isArchiving(page);
             final boolean isError = page.isError();
-            final boolean statusVisible = isArchiving || isError;
+            final boolean statusVisible = isError;
             holder.status.setVisibility(statusVisible ? View.VISIBLE : View.GONE);
 
-            if (isArchiving)
-                holder.status.setImageResource(R.drawable.ic_syncing);
-            else if (isError)
+//            if (isArchiving)
+//                holder.status.setImageResource(R.drawable.ic_syncing);
+            if (isError)
                 holder.status.setImageResource(R.drawable.ic_error);
 
         }
